@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function SignupPage() {
-  const [email, setEmail] = useState("");
+function ResetForm() {
+  const params = useSearchParams();
+  const token = params.get("token") ?? "";
+
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -14,10 +18,10 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await fetch("/api/auth/signup", {
+    const res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ token, password }),
     });
     const data = await res.json();
     setLoading(false);
@@ -32,14 +36,10 @@ export default function SignupPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-white px-4">
         <div className="w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-gray-900">이메일을 확인하세요</h1>
-          <p className="mt-3 text-sm text-gray-500">
-            인증 링크를 <strong>{email}</strong> 로 보냈습니다.
-            <br />
-            링크를 클릭해 인증을 완료하면 로그인할 수 있습니다.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">비밀번호 변경 완료</h1>
+          <p className="mt-3 text-sm text-gray-500">새 비밀번호로 로그인해주세요.</p>
           <Link href="/login" className="mt-6 inline-block text-sm font-medium text-black underline">
-            로그인으로 이동
+            로그인
           </Link>
         </div>
       </main>
@@ -49,21 +49,10 @@ export default function SignupPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900">시작하기</h1>
-        <p className="mt-1 text-sm text-gray-500">가입 즉시 무료 크레딧 50개 지급</p>
+        <h1 className="text-2xl font-bold text-gray-900">새 비밀번호 설정</h1>
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">이메일</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">비밀번호 (8자 이상)</label>
+            <label className="block text-sm font-medium text-gray-700">새 비밀번호 (8자 이상)</label>
             <input
               type="password"
               required
@@ -79,16 +68,18 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full rounded-full bg-black py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {loading ? "처리 중..." : "가입하기"}
+            {loading ? "변경 중..." : "비밀번호 변경"}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-gray-500">
-          이미 계정이 있나요?{" "}
-          <Link href="/login" className="font-medium text-black underline">
-            로그인
-          </Link>
-        </p>
       </div>
     </main>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetForm />
+    </Suspense>
   );
 }

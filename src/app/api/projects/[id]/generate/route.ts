@@ -6,7 +6,7 @@ import { generateScenario, generateCutImage } from "@/lib/openai";
 import { checkAndDeductCredits } from "@/lib/credits";
 
 const schema = z.object({
-  story: z.string().min(1),
+  story: z.string().default(""),
   characterIds: z.array(z.string()).optional().default([]),
   mode: z.enum(["auto", "manual"]).default("auto"),
   manualScenarios: z
@@ -45,10 +45,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     // 시나리오 생성
-    const scenarios =
-      mode === "manual" && manualScenarios?.length
-        ? manualScenarios
-        : await generateScenario(story, cutCount);
+    let scenarios: { description: string; dialogue: string }[];
+    if (mode === "manual" && manualScenarios?.length) {
+      // 빈 컷은 AI로 보강
+      const hasEmpty = manualScenarios.some((s) => !s.description.trim());
+      const aiScenarios = hasEmpty ? await generateScenario(story || "웹툰 만화", cutCount) : null;
+      scenarios = manualScenarios.map((s, i) => ({
+        description: s.description.trim() || aiScenarios?.[i]?.description || `장면 ${i + 1}`,
+        dialogue: s.dialogue.trim() || aiScenarios?.[i]?.dialogue || "",
+      }));
+    } else {
+      scenarios = await generateScenario(story, cutCount);
+    }
 
     // 캐릭터 프롬프트 조회
     const characters =

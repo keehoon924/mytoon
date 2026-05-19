@@ -2,6 +2,10 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be set in production");
+}
+
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret");
 const COOKIE = "mytoon_session";
 
@@ -49,5 +53,17 @@ export function sessionCookieOptions(token: string) {
     sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
+  };
+}
+
+export function logoutCookieOptions() {
+  return {
+    name: COOKIE,
+    value: "",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 0,
   };
 }

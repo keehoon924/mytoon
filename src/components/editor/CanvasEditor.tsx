@@ -10,6 +10,25 @@ import { nanoid } from "nanoid";
 
 const CANVAS_SIZE = 512;
 
+const BUBBLE_BG: Record<string, string> = {
+  narration: "#fffbe6",
+  sfx: "#fff0f0",
+};
+const BUBBLE_BORDER: Record<string, string> = {
+  shout: "#e53e3e",
+  thought: "#7c3aed",
+};
+const BUBBLE_DASH: Record<string, number[]> = {
+  thought: [6, 3],
+};
+const BUBBLE_STROKE_WIDTH: Record<string, number> = {
+  shout: 2.5,
+};
+const BUBBLE_RADIUS: Record<string, number> = {
+  sfx: 0,
+  shout: 4,
+};
+
 type Props = {
   imageUrl: string | null;
   objects: CanvasObject[];
@@ -41,15 +60,9 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
     }
   }, [isSelected]);
 
-  const bgColor =
-    obj.bubbleType === "narration" ? "#fffbe6" :
-    obj.bubbleType === "sfx" ? "#fff0f0" : "#ffffff";
-
-  const borderColor =
-    obj.bubbleType === "shout" ? "#e53e3e" :
-    obj.bubbleType === "thought" ? "#7c3aed" : "#374151";
-
-  const dash = obj.bubbleType === "thought" ? [6, 3] : undefined;
+  const bgColor = BUBBLE_BG[obj.bubbleType] ?? "#ffffff";
+  const borderColor = BUBBLE_BORDER[obj.bubbleType] ?? "#374151";
+  const dash = BUBBLE_DASH[obj.bubbleType];
 
   return (
     <>
@@ -76,8 +89,8 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
         }}
       >
         <Rect width={obj.w} height={obj.h} fill={bgColor} stroke={borderColor}
-          strokeWidth={obj.bubbleType === "shout" ? 2.5 : 1.5}
-          cornerRadius={obj.bubbleType === "sfx" ? 0 : obj.bubbleType === "shout" ? 4 : 12}
+          strokeWidth={BUBBLE_STROKE_WIDTH[obj.bubbleType] ?? 1.5}
+          cornerRadius={BUBBLE_RADIUS[obj.bubbleType] ?? 12}
           dash={dash} />
         <Text
           text={obj.text} width={obj.w} height={obj.h}
@@ -109,13 +122,12 @@ export default function CanvasEditor({ imageUrl, objects, onChange }: Props) {
   }
 
   return (
-    <div className="relative">
-      <Stage
-        ref={stageRef}
-        width={CANVAS_SIZE} height={CANVAS_SIZE}
-        onMouseDown={deselect} onTouchStart={deselect}
-        className="border rounded-lg overflow-hidden shadow"
-      >
+    <Stage
+      ref={stageRef}
+      width={CANVAS_SIZE} height={CANVAS_SIZE}
+      onMouseDown={deselect} onTouchStart={deselect}
+      className="border rounded-lg overflow-hidden shadow"
+    >
         <Layer>
           {imageUrl && <CutImage url={imageUrl} />}
           {[...objects]
@@ -133,7 +145,6 @@ export default function CanvasEditor({ imageUrl, objects, onChange }: Props) {
             )}
         </Layer>
       </Stage>
-    </div>
   );
 }
 

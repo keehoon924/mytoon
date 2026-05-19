@@ -31,7 +31,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { story, characterIds, mode, manualScenarios } = parsed.data;
   const cutCount = project.cutCount;
 
-  // 크레딧 체크
   const credit = await checkAndDeductCredits(session.userId, session.role, cutCount);
   if (!credit.ok) {
     return NextResponse.json(
@@ -40,14 +39,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  // 상태 업데이트
   await prisma.project.update({ where: { id }, data: { status: "generating" } });
 
   try {
-    // 시나리오 생성
     let scenarios: { description: string; dialogue: string }[];
     if (mode === "manual" && manualScenarios?.length) {
-      // 빈 컷은 AI로 보강
       const hasEmpty = manualScenarios.some((s) => !s.description.trim());
       const aiScenarios = hasEmpty ? await generateScenario(story || "웹툰 만화", cutCount) : null;
       scenarios = manualScenarios.map((s, i) => ({
@@ -58,7 +54,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       scenarios = await generateScenario(story, cutCount);
     }
 
-    // 캐릭터 프롬프트 조회
     const characters =
       characterIds.length > 0
         ? await prisma.character.findMany({
@@ -70,12 +65,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       (c) => c.descriptionPrompt ?? c.name
     );
 
-    // 컷 이미지 병렬 생성
     const imageUrls = await Promise.all(
       scenarios.map((s) => generateCutImage(s.description, characterPrompts))
     );
 
-    // 기존 컷 삭제 후 재생성
     await prisma.cut.deleteMany({ where: { projectId: id } });
 
     const cuts = await Promise.all(

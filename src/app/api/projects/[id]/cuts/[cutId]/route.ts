@@ -56,26 +56,26 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const { bubbles, overlayItems } = parsed.data;
 
-  // 말풍선 교체
   if (bubbles !== undefined) {
-    await prisma.bubble.deleteMany({ where: { cutId } });
-    if (bubbles.length > 0) {
-      await prisma.bubble.createMany({
-        data: bubbles.map((b) => ({
-          cutId,
-          type: b.type,
-          text: b.text,
-          font: b.font,
-          x: b.x,
-          y: b.y,
-          w: b.w,
-          h: b.h,
-        })),
-      });
-    }
+    await prisma.$transaction([
+      prisma.bubble.deleteMany({ where: { cutId } }),
+      ...(bubbles.length > 0
+        ? [prisma.bubble.createMany({
+            data: bubbles.map((b) => ({
+              cutId,
+              type: b.type,
+              text: b.text,
+              font: b.font,
+              x: b.x,
+              y: b.y,
+              w: b.w,
+              h: b.h,
+            })),
+          })]
+        : []),
+    ]);
   }
 
-  // overlay (캐릭터 스티커 등) 저장
   const updated = await prisma.cut.update({
     where: { id: cutId },
     data: {

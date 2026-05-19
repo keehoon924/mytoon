@@ -38,15 +38,17 @@ export async function POST(req: NextRequest) {
   });
 
   const token = randomBytes(32).toString("hex");
-  await prisma.emailToken.create({
-    data: {
-      userId: user.id,
-      token,
-      type: "verify",
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
-  });
-  await sendVerificationEmail(email, token);
+  await Promise.all([
+    prisma.emailToken.create({
+      data: {
+        userId: user.id,
+        token,
+        type: "verify",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    }),
+    sendVerificationEmail(email, token),
+  ]);
 
   const jwt = await signToken({ userId: user.id, role: user.role });
   const res = NextResponse.json({ message: "가입 완료. 이메일을 확인해 인증을 완료하세요." }, { status: 201 });

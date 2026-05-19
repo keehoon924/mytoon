@@ -40,9 +40,11 @@ export default function NewProjectPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/characters")
       .then((r) => r.json())
-      .then((d) => setCharacters(d.characters ?? []));
+      .then((d) => { if (!cancelled) setCharacters(d.characters ?? []); });
+    return () => { cancelled = true; };
   }, []);
 
   // 레이아웃 변경 시 직접 입력 폼 초기화

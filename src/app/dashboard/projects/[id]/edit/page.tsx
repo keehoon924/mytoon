@@ -131,14 +131,21 @@ export default function EditPage() {
 
   function handleMoveZ(objId: string, dir: "up" | "down") {
     setObjects((prev) => {
-      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
-      const idx = sorted.findIndex((o) => o.id === objId);
-      if (dir === "up" && idx < sorted.length - 1) {
-        [sorted[idx].zIndex, sorted[idx + 1].zIndex] = [sorted[idx + 1].zIndex, sorted[idx].zIndex];
-      } else if (dir === "down" && idx > 0) {
-        [sorted[idx].zIndex, sorted[idx - 1].zIndex] = [sorted[idx - 1].zIndex, sorted[idx].zIndex];
+      const target = prev.find((o) => o.id === objId);
+      if (!target) return prev;
+      let neighbor: CanvasObject | null = null;
+      for (const o of prev) {
+        if (o.id === objId) continue;
+        if (dir === "up" && o.zIndex > target.zIndex && (!neighbor || o.zIndex < neighbor.zIndex)) neighbor = o;
+        if (dir === "down" && o.zIndex < target.zIndex && (!neighbor || o.zIndex > neighbor.zIndex)) neighbor = o;
       }
-      return sorted;
+      if (!neighbor) return prev;
+      const newZ = neighbor.zIndex;
+      const oldZ = target.zIndex;
+      return prev.map((o) =>
+        o.id === objId ? { ...o, zIndex: newZ } :
+        o.id === neighbor!.id ? { ...o, zIndex: oldZ } : o
+      );
     });
   }
 

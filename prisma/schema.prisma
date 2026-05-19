@@ -93,15 +93,16 @@ model Project {
 }
 
 model Cut {
-  id           String   @id @default(cuid())
-  projectId    String
-  orderIndex   Int
-  imageUrl     String?
-  prompt       String?
-  characterIds String[]
-  overlayJson  Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  projectId        String
+  orderIndex       Int
+  imageUrl         String?
+  previousImageUrl String?
+  prompt           String?
+  characterIds     String[]
+  overlayJson      Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   bubbles Bubble[]

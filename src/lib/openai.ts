@@ -83,6 +83,28 @@ export async function generateScenario(
   return cuts.slice(0, cutCount);
 }
 
+// ── 컷 인페인팅 ──────────────────────────────────────────────
+
+export async function inpaintCutImage(imageUrl: string, prompt: string): Promise<string> {
+  if (!openai) return IMG_PLACEHOLDER(prompt.slice(0, 20));
+
+  const imgRes = await fetch(imageUrl);
+  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+  const imageFile = new File([imgBuffer], "image.png", { type: "image/png" });
+
+  const res = await openai.images.edit({
+    model: "gpt-image-1",
+    image: imageFile,
+    prompt: `Webtoon comic panel edit. ${prompt}. Maintain Korean cartoon style, keep unchanged areas identical.`,
+    n: 1,
+    size: "1024x1024",
+  });
+
+  const b64 = res.data?.[0]?.b64_json;
+  if (!b64) return IMG_PLACEHOLDER(prompt.slice(0, 20));
+  return `data:image/png;base64,${b64}`;
+}
+
 // ── 컷 이미지 생성 ─────────────────────────────────────────────
 
 export async function generateCutImage(

@@ -9,6 +9,7 @@ import { FONT_FAMILY } from "./types";
 import { nanoid } from "nanoid";
 
 const CANVAS_SIZE = 512;
+const BRUSH_RADIUS = 20;
 
 const BUBBLE_BG: Record<string, string> = {
   narration: "#fffbe6",
@@ -33,6 +34,8 @@ type Props = {
   imageUrl: string | null;
   objects: CanvasObject[];
   onChange: (objects: CanvasObject[]) => void;
+  maskMode?: boolean;
+  maskCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
 };
 
 function CutImage({ url }: { url: string }) {
@@ -109,9 +112,10 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
   );
 }
 
-export default function CanvasEditor({ imageUrl, objects, onChange }: Props) {
+export default function CanvasEditor({ imageUrl, objects, onChange, maskMode = false, maskCanvasRef }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const isDrawing = useRef(false);
 
   const deselect = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (e.target === stageRef.current) setSelectedId(null);
@@ -121,13 +125,52 @@ export default function CanvasEditor({ imageUrl, objects, onChange }: Props) {
     onChange(objects.map((o) => (o.id === updated.id ? updated : o)));
   }
 
+  function initMaskCanvas() {
+    const canvas = maskCanvasRef?.current;
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    return ctx;
+  }
+
+  function drawBrush(x: number, y: number) {
+    const ctx = initMaskCanvas();
+    if (!ctx) return;
+    ctx.fillStyle = "rgba(255, 100, 100, 0.5)";
+    ctx.beginPath();
+    ctx.arc(x, y, BRUSH_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function getCanvasPos(e: React.MouseEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function handleMaskMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    isDrawing.current = true;
+    const { x, y } = getCanvasPos(e);
+    drawBrush(x, y);
+  }
+
+  function handleMaskMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (!isDrawing.current) return;
+    const { x, y } = getCanvasPos(e);
+    drawBrush(x, y);
+  }
+
+  function handleMaskMouseUp() {
+    isDrawing.current = false;
+  }
+
   return (
-    <Stage
-      ref={stageRef}
-      width={CANVAS_SIZE} height={CANVAS_SIZE}
-      onMouseDown={deselect} onTouchStart={deselect}
-      className="border rounded-lg overflow-hidden shadow"
-    >
+    <div className="relative inline-block">
+      <Stage
+        ref={stageRef}
+        width={CANVAS_SIZE} height={CANVAS_SIZE}
+        onMouseDown={deselect} onTouchStart={deselect}
+        className="border rounded-lg overflow-hidden shadow"
+      >
         <Layer>
           {imageUrl && <CutImage url={imageUrl} />}
           {[...objects]
@@ -145,6 +188,20 @@ export default function CanvasEditor({ imageUrl, objects, onChange }: Props) {
             )}
         </Layer>
       </Stage>
+      {maskMode && (
+        <canvas
+          ref={maskCanvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          className="absolute inset-0 rounded-lg cursor-crosshair"
+          style={{ pointerEvents: "all" }}
+          onMouseDown={handleMaskMouseDown}
+          onMouseMove={handleMaskMouseMove}
+          onMouseUp={handleMaskMouseUp}
+          onMouseLeave={handleMaskMouseUp}
+        />
+      )}
+    </div>
   );
 }
 

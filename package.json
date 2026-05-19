@@ -16,13 +16,17 @@
     "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
+    "konva": "^10.3.0",
+    "nanoid": "^5.1.11",
     "next": "16.2.6",
     "openai": "^6.38.0",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-konva": "^19.2.4",
     "resend": "^6.12.3",
+    "use-image": "^1.1.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

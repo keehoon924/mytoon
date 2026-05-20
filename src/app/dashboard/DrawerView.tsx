@@ -182,7 +182,9 @@ export default function DrawerView({ userEmail, creditBalance, isAdmin }: Props)
           {isAdmin ? (
             <span className="font-medium text-purple-600">관리자 (무제한)</span>
           ) : (
-            <span>크레딧 <strong className="text-black">{creditBalance}</strong>개</span>
+            <Link href="/dashboard/credits" className="hover:text-black">
+              크레딧 <strong className="text-black">{creditBalance}</strong>개 <span className="text-xs text-blue-600">+ 충전</span>
+            </Link>
           )}
           <span className="text-gray-400 text-xs">{userEmail}</span>
           <form action="/api/auth/logout" method="POST">

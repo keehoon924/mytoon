@@ -37,6 +37,7 @@ model User {
   characters         Character[]
   projects           Project[]
   folders            Folder[]
+  paymentOrders      PaymentOrder[]
 }
 
 model Folder {
@@ -148,6 +149,31 @@ model Bubble {
   createdAt DateTime @default(now())
 
   cut Cut @relation(fields: [cutId], references: [id], onDelete: Cascade)
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+model PaymentOrder {
+  id              String        @id @default(cuid())
+  userId          String
+  packageId       String
+  credits         Int
+  amountKrw       Int
+  status          PaymentStatus @default(PENDING)
+  tossOrderId     String        @unique
+  tossPaymentKey  String?
+  failReason      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model ProjectVersion {

@@ -179,6 +179,7 @@ export default function DrawerView({ userEmail, creditBalance, isAdmin }: Props)
         <span className="font-bold text-gray-900">MyToon</span>
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <Link href="/dashboard/characters" className="hover:text-black">내 캐릭터</Link>
+          {isAdmin && <Link href="/admin" className="text-purple-600 hover:text-purple-800">어드민</Link>}
           {isAdmin ? (
             <span className="font-medium text-purple-600">관리자 (무제한)</span>
           ) : (

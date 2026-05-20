@@ -1,15 +1,14 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer, Group } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Transformer, Group, Line } from "react-konva";
 import useImage from "use-image";
 import Konva from "konva";
-import type { CanvasObject, BubbleObject, BubbleType } from "./types";
-import { FONT_FAMILY } from "./types";
+import type { CanvasObject, BubbleObject, BubbleType, CharacterObject, StrokeObject, FilterSettings } from "./types";
+import { FONT_FAMILY, CANVAS_SIZE, DEFAULT_FILTERS } from "./types";
 import { nanoid } from "nanoid";
 
-const CANVAS_SIZE = 512;
-const BRUSH_RADIUS = 20;
+const MASK_BRUSH_RADIUS = 20;
 
 const BUBBLE_BG: Record<string, string> = {
   narration: "#fffbe6",
@@ -30,22 +29,60 @@ const BUBBLE_RADIUS: Record<string, number> = {
   shout: 4,
 };
 
+export type EditorTool = "select" | "brush" | "mask";
+
+export type BrushSettings = {
+  color: string;
+  width: number;
+  erase: boolean;
+};
+
 type Props = {
   imageUrl: string | null;
   objects: CanvasObject[];
   onChange: (objects: CanvasObject[]) => void;
-  maskMode?: boolean;
+  tool?: EditorTool;
+  brush?: BrushSettings;
+  filters?: FilterSettings;
+  hiddenIds?: Set<string>;
+  lockedIds?: Set<string>;
   maskCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
 };
 
-function CutImage({ url }: { url: string }) {
-  const [img] = useImage(url, "anonymous");
-  return <KonvaImage image={img} width={CANVAS_SIZE} height={CANVAS_SIZE} />;
+type KonvaFilter = typeof Konva.Filters.Brighten;
+
+function buildKonvaFilters(filters: FilterSettings): KonvaFilter[] {
+  const list: KonvaFilter[] = [];
+  if (filters.brightness !== 0) list.push(Konva.Filters.Brighten);
+  if (filters.contrast !== 0) list.push(Konva.Filters.Contrast);
+  if (filters.saturation !== 0) list.push(Konva.Filters.HSL);
+  if (filters.grayscale) list.push(Konva.Filters.Grayscale);
+  if (filters.sepia) list.push(Konva.Filters.Sepia);
+  return list;
 }
 
-function BubbleShape({ obj, isSelected, onSelect, onChange }: {
+function CutImage({ url, filters }: { url: string; filters: FilterSettings }) {
+  const [img] = useImage(url, "anonymous");
+  const ref = useRef<Konva.Image>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || !img) return;
+    node.cache();
+    node.filters(buildKonvaFilters(filters));
+    node.brightness(filters.brightness);
+    node.contrast(filters.contrast * 100);
+    node.saturation(filters.saturation);
+    node.getLayer()?.batchDraw();
+  }, [img, filters]);
+
+  return <KonvaImage ref={ref} image={img} width={CANVAS_SIZE} height={CANVAS_SIZE} />;
+}
+
+function BubbleShape({ obj, isSelected, locked, onSelect, onChange }: {
   obj: BubbleObject;
   isSelected: boolean;
+  locked: boolean;
   onSelect: () => void;
   onChange: (o: BubbleObject) => void;
 }) {
@@ -55,13 +92,13 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
 
   useEffect(() => {
     if (!trRef.current) return;
-    if (isSelected && groupRef.current) {
+    if (isSelected && !locked && groupRef.current) {
       trRef.current.nodes([groupRef.current]);
       trRef.current.getLayer()?.batchDraw();
     } else {
       trRef.current.nodes([]);
     }
-  }, [isSelected]);
+  }, [isSelected, locked]);
 
   const bgColor = BUBBLE_BG[obj.bubbleType] ?? "#ffffff";
   const borderColor = BUBBLE_BORDER[obj.bubbleType] ?? "#374151";
@@ -74,7 +111,8 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
         x={obj.x} y={obj.y}
         width={obj.w} height={obj.h}
         rotation={obj.rotation}
-        draggable
+        draggable={!locked}
+        listening={!locked}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={(e) => onChange({ ...obj, x: e.target.x(), y: e.target.y() })}
@@ -112,13 +150,114 @@ function BubbleShape({ obj, isSelected, onSelect, onChange }: {
   );
 }
 
-export default function CanvasEditor({ imageUrl, objects, onChange, maskMode = false, maskCanvasRef }: Props) {
+function CharacterShape({ obj, isSelected, locked, onSelect, onChange }: {
+  obj: CharacterObject;
+  isSelected: boolean;
+  locked: boolean;
+  onSelect: () => void;
+  onChange: (o: CharacterObject) => void;
+}) {
+  const [img] = useImage(obj.imageUrl, "anonymous");
+  const imgRef = useRef<Konva.Image>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    if (!trRef.current) return;
+    if (isSelected && !locked && imgRef.current) {
+      trRef.current.nodes([imgRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    } else {
+      trRef.current.nodes([]);
+    }
+  }, [isSelected, locked]);
+
+  return (
+    <>
+      <KonvaImage
+        ref={imgRef}
+        image={img}
+        x={obj.x} y={obj.y} width={obj.w} height={obj.h}
+        rotation={obj.rotation}
+        draggable={!locked}
+        listening={!locked}
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => onChange({ ...obj, x: e.target.x(), y: e.target.y() })}
+        onTransformEnd={() => {
+          const node = imgRef.current;
+          if (!node) return;
+          onChange({
+            ...obj,
+            x: node.x(), y: node.y(),
+            w: Math.max(20, node.width() * node.scaleX()),
+            h: Math.max(20, node.height() * node.scaleY()),
+            rotation: node.rotation(),
+          });
+          node.scaleX(1); node.scaleY(1);
+        }}
+      />
+      <Transformer
+        ref={trRef}
+        rotateEnabled keepRatio={false}
+        enabledAnchors={["top-left","top-right","bottom-left","bottom-right"]}
+      />
+    </>
+  );
+}
+
+export default function CanvasEditor({
+  imageUrl, objects, onChange,
+  tool = "select",
+  brush = { color: "#000000", width: 4, erase: false },
+  filters = DEFAULT_FILTERS,
+  hiddenIds,
+  lockedIds,
+  maskCanvasRef,
+}: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const isDrawing = useRef(false);
+  const currentStrokeId = useRef<string | null>(null);
 
-  const deselect = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+  const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (tool === "brush") {
+      const pos = stageRef.current?.getPointerPosition();
+      if (!pos) return;
+      isDrawing.current = true;
+      const id = nanoid();
+      currentStrokeId.current = id;
+      const newStroke: StrokeObject = {
+        id,
+        kind: "stroke",
+        points: [pos.x, pos.y],
+        color: brush.color,
+        width: brush.width,
+        erase: brush.erase,
+        zIndex: objects.length,
+      };
+      onChange([...objects, newStroke]);
+      return;
+    }
     if (e.target === stageRef.current) setSelectedId(null);
+  }, [tool, brush, objects, onChange]);
+
+  const handleStageMouseMove = useCallback(() => {
+    if (tool !== "brush" || !isDrawing.current || !currentStrokeId.current) return;
+    const pos = stageRef.current?.getPointerPosition();
+    if (!pos) return;
+    const id = currentStrokeId.current;
+    onChange(
+      objects.map((o) =>
+        o.id === id && o.kind === "stroke"
+          ? { ...o, points: [...o.points, pos.x, pos.y] }
+          : o
+      )
+    );
+  }, [tool, objects, onChange]);
+
+  const handleStageMouseUp = useCallback(() => {
+    isDrawing.current = false;
+    currentStrokeId.current = null;
   }, []);
 
   function updateObject(updated: CanvasObject) {
@@ -128,17 +267,15 @@ export default function CanvasEditor({ imageUrl, objects, onChange, maskMode = f
   function initMaskCanvas() {
     const canvas = maskCanvasRef?.current;
     if (!canvas) return null;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    return ctx;
+    return canvas.getContext("2d");
   }
 
-  function drawBrush(x: number, y: number) {
+  function drawMaskBrush(x: number, y: number) {
     const ctx = initMaskCanvas();
     if (!ctx) return;
     ctx.fillStyle = "rgba(255, 100, 100, 0.5)";
     ctx.beginPath();
-    ctx.arc(x, y, BRUSH_RADIUS, 0, Math.PI * 2);
+    ctx.arc(x, y, MASK_BRUSH_RADIUS, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -150,45 +287,83 @@ export default function CanvasEditor({ imageUrl, objects, onChange, maskMode = f
   function handleMaskMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
     isDrawing.current = true;
     const { x, y } = getCanvasPos(e);
-    drawBrush(x, y);
+    drawMaskBrush(x, y);
   }
 
   function handleMaskMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
     if (!isDrawing.current) return;
     const { x, y } = getCanvasPos(e);
-    drawBrush(x, y);
+    drawMaskBrush(x, y);
   }
 
   function handleMaskMouseUp() {
     isDrawing.current = false;
   }
 
+  const isMaskMode = tool === "mask";
+  const isBrushMode = tool === "brush";
+
   return (
     <div className="relative inline-block">
       <Stage
         ref={stageRef}
         width={CANVAS_SIZE} height={CANVAS_SIZE}
-        onMouseDown={deselect} onTouchStart={deselect}
-        className="border rounded-lg overflow-hidden shadow"
+        onMouseDown={handleStageMouseDown}
+        onTouchStart={handleStageMouseDown}
+        onMouseMove={handleStageMouseMove}
+        onTouchMove={handleStageMouseMove}
+        onMouseUp={handleStageMouseUp}
+        onTouchEnd={handleStageMouseUp}
+        className={`border rounded-lg overflow-hidden shadow ${isBrushMode ? "cursor-crosshair" : ""}`}
       >
         <Layer>
-          {imageUrl && <CutImage url={imageUrl} />}
+          {imageUrl && <CutImage url={imageUrl} filters={filters} />}
           {[...objects]
             .sort((a, b) => a.zIndex - b.zIndex)
-            .map((obj) =>
-              obj.kind === "bubble" ? (
-                <BubbleShape
+            .filter((obj) => !hiddenIds?.has(obj.id))
+            .map((obj) => {
+              const locked = lockedIds?.has(obj.id) ?? false;
+              if (obj.kind === "bubble") {
+                return (
+                  <BubbleShape
+                    key={obj.id}
+                    obj={obj}
+                    isSelected={selectedId === obj.id}
+                    locked={locked || isBrushMode}
+                    onSelect={() => !isBrushMode && setSelectedId(obj.id)}
+                    onChange={(updated) => updateObject(updated)}
+                  />
+                );
+              }
+              if (obj.kind === "character") {
+                return (
+                  <CharacterShape
+                    key={obj.id}
+                    obj={obj}
+                    isSelected={selectedId === obj.id}
+                    locked={locked || isBrushMode}
+                    onSelect={() => !isBrushMode && setSelectedId(obj.id)}
+                    onChange={(updated) => updateObject(updated)}
+                  />
+                );
+              }
+              return (
+                <Line
                   key={obj.id}
-                  obj={obj}
-                  isSelected={selectedId === obj.id}
-                  onSelect={() => setSelectedId(obj.id)}
-                  onChange={(updated) => updateObject(updated)}
+                  points={obj.points}
+                  stroke={obj.color}
+                  strokeWidth={obj.width}
+                  tension={0.4}
+                  lineCap="round"
+                  lineJoin="round"
+                  globalCompositeOperation={obj.erase ? "destination-out" : "source-over"}
+                  listening={false}
                 />
-              ) : null
-            )}
+              );
+            })}
         </Layer>
       </Stage>
-      {maskMode && (
+      {isMaskMode && (
         <canvas
           ref={maskCanvasRef}
           width={CANVAS_SIZE}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import EditorPanel from "@/components/editor/EditorPanel";
+import VersionDrawer from "@/components/editor/VersionDrawer";
 import type { CanvasObject, BubbleType, StrokeObject, FilterSettings } from "@/components/editor/types";
 import { DEFAULT_FILTERS } from "@/components/editor/types";
 import { addBubble } from "@/components/editor/CanvasEditor";
@@ -12,6 +13,7 @@ import type { EditorTool, BrushSettings } from "@/components/editor/CanvasEditor
 import { nanoid } from "nanoid";
 
 const CanvasEditor = dynamic(() => import("@/components/editor/CanvasEditor"), { ssr: false });
+const AUTOSAVE_INTERVAL_MS = 30000;
 
 type Bubble = {
   id: string; type: string; text: string; font: string;
@@ -100,6 +102,11 @@ export default function EditPage() {
   const [inpainting, setInpainting] = useState(false);
   const [opError, setOpError] = useState("");
 
+  const [showVersionDrawer, setShowVersionDrawer] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [autosaveTick, setAutosaveTick] = useState(0);
+  const dirtyRef = useRef(false);
+
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -180,7 +187,48 @@ export default function EditPage() {
       body: JSON.stringify({ bubbles, overlay }),
     });
     setSaving(false);
+    dirtyRef.current = false;
+    setLastSavedAt(new Date());
   }, [cuts, activeCutIndex, objects, filters, id, buildPayload]);
+
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [objects, filters]);
+
+  useEffect(() => {
+    const t = setInterval(() => setAutosaveTick((n) => n + 1), AUTOSAVE_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (autosaveTick === 0) return;
+    if (!dirtyRef.current) return;
+    let cancelled = false;
+    (async () => {
+      await saveCurrent();
+      if (cancelled) return;
+      await fetch(`/api/projects/${id}/versions`, { method: "POST" });
+    })();
+    return () => { cancelled = true; };
+  }, [autosaveTick, saveCurrent, id]);
+
+  async function reloadProject() {
+    const res = await fetch(`/api/projects/${id}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const rawCuts: Array<Cut & { previousImageUrl?: string }> = data.project.cuts;
+    const normalized = rawCuts.map((c) => ({ ...c, hasPrevious: !!c.previousImageUrl }));
+    setCuts(normalized);
+    setTitle(data.project.title);
+    setActiveCutIndex(0);
+    setObjects(cutToObjects(normalized[0]));
+    setFilters(normalized[0]?.overlayJson?.filters ?? DEFAULT_FILTERS);
+    setSelectedId(null);
+    setHiddenIds(new Set());
+    setLockedIds(new Set());
+    setRegenPrompt(normalized[0]?.prompt ?? "");
+    dirtyRef.current = false;
+  }
 
   const switchCut = useCallback(async (newIndex: number) => {
     await saveCurrent();
@@ -310,15 +358,33 @@ export default function EditPage() {
         <div className="flex items-center gap-3">
           <Link href={`/dashboard/projects/${id}`} className="text-gray-500 hover:text-black text-sm">←</Link>
           <span className="font-semibold text-gray-900 text-sm">{title} 편집</span>
+          <span className="text-xs text-gray-400">
+            {saving ? "저장 중..." : lastSavedAt ? `마지막 저장: ${lastSavedAt.toLocaleTimeString("ko-KR")}` : "자동 저장 대기"}
+          </span>
         </div>
-        <button
-          onClick={async () => { await saveCurrent(); router.push(`/dashboard/projects/${id}`); }}
-          disabled={saving}
-          className="rounded-full bg-black px-5 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {saving ? "저장 중..." : "저장 완료"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowVersionDrawer(true)}
+            className="rounded-full border border-gray-200 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            버전 히스토리
+          </button>
+          <button
+            onClick={async () => { await saveCurrent(); router.push(`/dashboard/projects/${id}`); }}
+            disabled={saving}
+            className="rounded-full bg-black px-5 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            저장 완료
+          </button>
+        </div>
       </header>
+
+      <VersionDrawer
+        projectId={id}
+        open={showVersionDrawer}
+        onClose={() => setShowVersionDrawer(false)}
+        onRestored={() => { reloadProject(); }}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         {/* 컷 목록 */}

@@ -8,18 +8,18 @@ const bubbleSchema = z.object({
   type: z.string(),
   text: z.string(),
   font: z.string().default("default"),
-  color: z.string().default("#000000"),
-  fontSize: z.number().default(14),
+  color: z.string().default("#111111"),
+  fontSize: z.number().int().default(14),
   bold: z.boolean().default(false),
   x: z.number(),
   y: z.number(),
   w: z.number(),
   h: z.number(),
   rotation: z.number().default(0),
-  zIndex: z.number().default(0),
+  zIndex: z.number().int().default(0),
 });
 
-const overlayItemSchema = z.object({
+const characterItemSchema = z.object({
   id: z.string(),
   type: z.literal("character"),
   characterId: z.string(),
@@ -29,12 +29,37 @@ const overlayItemSchema = z.object({
   w: z.number(),
   h: z.number(),
   rotation: z.number().default(0),
-  zIndex: z.number().default(0),
+  zIndex: z.number().int().default(0),
+});
+
+const strokeItemSchema = z.object({
+  id: z.string(),
+  type: z.literal("stroke"),
+  points: z.array(z.number()).max(20000),
+  color: z.string(),
+  width: z.number().min(0.5).max(100),
+  erase: z.boolean(),
+  zIndex: z.number().int().default(0),
+});
+
+const overlayItemSchema = z.union([characterItemSchema, strokeItemSchema]);
+
+const filterSchema = z.object({
+  brightness: z.number().min(-1).max(1).default(0),
+  contrast: z.number().min(-1).max(1).default(0),
+  saturation: z.number().min(-2).max(2).default(0),
+  grayscale: z.boolean().default(false),
+  sepia: z.boolean().default(false),
+});
+
+const overlaySchema = z.object({
+  items: z.array(overlayItemSchema).default([]),
+  filters: filterSchema.optional(),
 });
 
 const patchSchema = z.object({
   bubbles: z.array(bubbleSchema).optional(),
-  overlayItems: z.array(overlayItemSchema).optional(),
+  overlay: overlaySchema.optional(),
 });
 
 type RouteParams = { params: Promise<{ id: string; cutId: string }> };
@@ -54,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "입력값 오류" }, { status: 400 });
 
-  const { bubbles, overlayItems } = parsed.data;
+  const { bubbles, overlay } = parsed.data;
 
   if (bubbles !== undefined) {
     await prisma.$transaction([
@@ -66,10 +91,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
               type: b.type,
               text: b.text,
               font: b.font,
+              color: b.color,
+              fontSize: b.fontSize,
+              bold: b.bold,
               x: b.x,
               y: b.y,
               w: b.w,
               h: b.h,
+              rotation: b.rotation,
+              zIndex: b.zIndex,
             })),
           })]
         : []),
@@ -79,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const updated = await prisma.cut.update({
     where: { id: cutId },
     data: {
-      ...(overlayItems !== undefined ? { overlayJson: overlayItems } : {}),
+      ...(overlay !== undefined ? { overlayJson: overlay } : {}),
     },
     include: { bubbles: true },
   });

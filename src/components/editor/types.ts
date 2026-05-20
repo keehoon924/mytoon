@@ -30,7 +30,35 @@ export type CharacterObject = {
   zIndex: number;
 };
 
-export type CanvasObject = BubbleObject | CharacterObject;
+export type StrokeObject = {
+  id: string;
+  kind: "stroke";
+  points: number[];
+  color: string;
+  width: number;
+  erase: boolean;
+  zIndex: number;
+};
+
+export type CanvasObject = BubbleObject | CharacterObject | StrokeObject;
+
+export type FilterSettings = {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  grayscale: boolean;
+  sepia: boolean;
+};
+
+export const DEFAULT_FILTERS: FilterSettings = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  grayscale: false,
+  sepia: false,
+};
+
+export const CANVAS_SIZE = 512;
 
 export const BUBBLE_LABELS: Record<BubbleType, string> = {
   speech: "말풍선",

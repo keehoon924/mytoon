@@ -5,33 +5,76 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import EditorPanel from "@/components/editor/EditorPanel";
-import type { CanvasObject, BubbleType } from "@/components/editor/types";
+import type { CanvasObject, BubbleType, StrokeObject, FilterSettings } from "@/components/editor/types";
+import { DEFAULT_FILTERS } from "@/components/editor/types";
 import { addBubble } from "@/components/editor/CanvasEditor";
+import type { EditorTool, BrushSettings } from "@/components/editor/CanvasEditor";
 import { nanoid } from "nanoid";
 
 const CanvasEditor = dynamic(() => import("@/components/editor/CanvasEditor"), { ssr: false });
 
-type Bubble = { id: string; type: string; text: string; font: string; x: number; y: number; w: number; h: number };
-type Cut = { id: string; orderIndex: number; imageUrl: string | null; prompt: string | null; bubbles: Bubble[]; overlayJson: unknown; hasPrevious: boolean };
+type Bubble = {
+  id: string; type: string; text: string; font: string;
+  color: string; fontSize: number; bold: boolean;
+  x: number; y: number; w: number; h: number;
+  rotation: number; zIndex: number;
+};
+type OverlayItem =
+  | { id: string; type: "character"; characterId: string; imageUrl: string; x: number; y: number; w: number; h: number; rotation: number; zIndex: number }
+  | { id: string; type: "stroke"; points: number[]; color: string; width: number; erase: boolean; zIndex: number };
+
+type OverlayJson = {
+  items?: OverlayItem[];
+  filters?: FilterSettings;
+} | null;
+
+type Cut = {
+  id: string; orderIndex: number; imageUrl: string | null; prompt: string | null;
+  bubbles: Bubble[]; overlayJson: OverlayJson; hasPrevious: boolean;
+};
 type Character = { id: string; name: string; referenceImageUrl: string | null };
 
+const DEFAULT_BRUSH: BrushSettings = { color: "#000000", width: 4, erase: false };
+
+function overlayToObjects(overlay: OverlayJson): CanvasObject[] {
+  const items = overlay?.items ?? [];
+  return items.map((it): CanvasObject => {
+    if (it.type === "character") {
+      return {
+        id: it.id, kind: "character",
+        characterId: it.characterId, imageUrl: it.imageUrl,
+        x: it.x, y: it.y, w: it.w, h: it.h,
+        rotation: it.rotation, zIndex: it.zIndex,
+      };
+    }
+    return {
+      id: it.id, kind: "stroke",
+      points: it.points, color: it.color, width: it.width, erase: it.erase,
+      zIndex: it.zIndex,
+    };
+  });
+}
+
 function bubblesToObjects(bubbles: Bubble[]): CanvasObject[] {
-  return bubbles.map((b, i) => ({
+  return bubbles.map((b) => ({
     id: b.id,
     kind: "bubble" as const,
     bubbleType: (b.type as BubbleType) ?? "speech",
     text: b.text,
     font: b.font ?? "default",
-    color: "#111111",
-    fontSize: 14,
-    bold: false,
+    color: b.color ?? "#111111",
+    fontSize: b.fontSize ?? 14,
+    bold: b.bold ?? false,
     x: b.x, y: b.y, w: b.w, h: b.h,
-    rotation: 0,
-    zIndex: i,
+    rotation: b.rotation ?? 0,
+    zIndex: b.zIndex ?? 0,
   }));
 }
 
-type Tool = "select" | "mask";
+function cutToObjects(cut: Cut | undefined): CanvasObject[] {
+  if (!cut) return [];
+  return [...bubblesToObjects(cut.bubbles), ...overlayToObjects(cut.overlayJson)];
+}
 
 export default function EditPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +88,12 @@ export default function EditPage() {
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
 
-  const [tool, setTool] = useState<Tool>("select");
+  const [tool, setTool] = useState<EditorTool>("select");
+  const [brush, setBrush] = useState<BrushSettings>(DEFAULT_BRUSH);
+  const [filters, setFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+
   const [regenPrompt, setRegenPrompt] = useState("");
   const [inpaintPrompt, setInpaintPrompt] = useState("");
   const [regenerating, setRegenerating] = useState(false);
@@ -65,14 +113,13 @@ export default function EditPage() {
       const charData = await charRes.json();
       if (cancelled) return;
       if (projRes.ok) {
-        const rawCuts = projData.project.cuts;
-        setCuts(rawCuts.map((c: Cut & { previousImageUrl?: string }) => ({
-          ...c,
-          hasPrevious: !!c.previousImageUrl,
-        })));
+        const rawCuts: Array<Cut & { previousImageUrl?: string }> = projData.project.cuts;
+        const normalized = rawCuts.map((c) => ({ ...c, hasPrevious: !!c.previousImageUrl }));
+        setCuts(normalized);
         setTitle(projData.project.title);
-        setObjects(bubblesToObjects(rawCuts[0]?.bubbles ?? []));
-        setRegenPrompt(rawCuts[0]?.prompt ?? "");
+        setObjects(cutToObjects(normalized[0]));
+        setFilters(normalized[0]?.overlayJson?.filters ?? DEFAULT_FILTERS);
+        setRegenPrompt(normalized[0]?.prompt ?? "");
       }
       if (charRes.ok) setCharacters(charData.characters);
     }
@@ -80,60 +127,75 @@ export default function EditPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  const switchCut = useCallback(async (newIndex: number) => {
-    await saveCurrent();
-    setActiveCutIndex(newIndex);
-    setObjects(bubblesToObjects(cuts[newIndex]?.bubbles ?? []));
-    setSelectedId(null);
-    setTool("select");
-    setOpError("");
-    setRegenPrompt(cuts[newIndex]?.prompt ?? "");
-    clearMask();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cuts, objects]);
-
-  async function saveCurrent() {
-    const cut = cuts[activeCutIndex];
-    if (!cut) return;
-    setSaving(true);
-    const bubbles = objects
-      .filter((o) => o.kind === "bubble")
-      .map((o) => ({
-        type: o.kind === "bubble" ? o.bubbleType : "speech",
-        text: o.kind === "bubble" ? o.text : "",
-        font: o.kind === "bubble" ? o.font : "default",
-        color: o.kind === "bubble" ? o.color : "#000000",
-        fontSize: o.kind === "bubble" ? o.fontSize : 14,
-        bold: o.kind === "bubble" ? o.bold : false,
-        x: o.x, y: o.y, w: o.w, h: o.h,
-        rotation: o.rotation,
-        zIndex: o.zIndex,
-      }));
-    const overlayItems = objects
-      .filter((o) => o.kind === "character")
-      .map((o) => ({
-        id: o.id,
-        type: "character" as const,
-        characterId: o.kind === "character" ? o.characterId : "",
-        imageUrl: o.kind === "character" ? o.imageUrl : "",
-        x: o.x, y: o.y, w: o.w, h: o.h,
-        rotation: o.rotation,
-        zIndex: o.zIndex,
-      }));
-    await fetch(`/api/projects/${id}/cuts/${cut.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bubbles, overlayItems }),
-    });
-    setSaving(false);
-  }
-
   function clearMask() {
     const canvas = maskCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     ctx?.clearRect(0, 0, canvas.width, canvas.height);
   }
+
+  const buildPayload = useCallback((objs: CanvasObject[], f: FilterSettings) => {
+    const bubbles = objs
+      .filter((o) => o.kind === "bubble")
+      .map((o) => o.kind === "bubble" ? ({
+        type: o.bubbleType, text: o.text, font: o.font,
+        color: o.color, fontSize: o.fontSize, bold: o.bold,
+        x: o.x, y: o.y, w: o.w, h: o.h,
+        rotation: o.rotation, zIndex: o.zIndex,
+      }) : null)
+      .filter((b) => b !== null);
+
+    const items: OverlayItem[] = objs
+      .filter((o) => o.kind !== "bubble")
+      .map((o) => {
+        if (o.kind === "character") {
+          return {
+            id: o.id, type: "character" as const,
+            characterId: o.characterId, imageUrl: o.imageUrl,
+            x: o.x, y: o.y, w: o.w, h: o.h,
+            rotation: o.rotation, zIndex: o.zIndex,
+          };
+        }
+        const s = o as StrokeObject;
+        return {
+          id: s.id, type: "stroke" as const,
+          points: s.points, color: s.color, width: s.width, erase: s.erase,
+          zIndex: s.zIndex,
+        };
+      });
+
+    return { bubbles, overlay: { items, filters: f } };
+  }, []);
+
+  const saveCurrent = useCallback(async (objsArg?: CanvasObject[], filtersArg?: FilterSettings) => {
+    const cut = cuts[activeCutIndex];
+    if (!cut) return;
+    const objs = objsArg ?? objects;
+    const f = filtersArg ?? filters;
+    setSaving(true);
+    const { bubbles, overlay } = buildPayload(objs, f);
+    await fetch(`/api/projects/${id}/cuts/${cut.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bubbles, overlay }),
+    });
+    setSaving(false);
+  }, [cuts, activeCutIndex, objects, filters, id, buildPayload]);
+
+  const switchCut = useCallback(async (newIndex: number) => {
+    await saveCurrent();
+    setActiveCutIndex(newIndex);
+    const target = cuts[newIndex];
+    setObjects(cutToObjects(target));
+    setFilters(target?.overlayJson?.filters ?? DEFAULT_FILTERS);
+    setSelectedId(null);
+    setHiddenIds(new Set());
+    setLockedIds(new Set());
+    setTool("select");
+    setOpError("");
+    setRegenPrompt(target?.prompt ?? "");
+    clearMask();
+  }, [cuts, saveCurrent]);
 
   function updateActiveCutImage(imageUrl: string, hasPrevious: boolean) {
     setCuts((prev) =>
@@ -229,10 +291,18 @@ export default function EditPage() {
   function handleDelete(objId: string) {
     setObjects((prev) => prev.filter((o) => o.id !== objId));
     if (selectedId === objId) setSelectedId(null);
+    setHiddenIds((s) => { const n = new Set(s); n.delete(objId); return n; });
+    setLockedIds((s) => { const n = new Set(s); n.delete(objId); return n; });
+  }
+
+  function toggleHidden(objId: string) {
+    setHiddenIds((s) => { const n = new Set(s); if (n.has(objId)) n.delete(objId); else n.add(objId); return n; });
+  }
+  function toggleLocked(objId: string) {
+    setLockedIds((s) => { const n = new Set(s); if (n.has(objId)) n.delete(objId); else n.add(objId); return n; });
   }
 
   const activeCut = cuts[activeCutIndex];
-  const isMaskMode = tool === "mask";
 
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
@@ -300,7 +370,11 @@ export default function EditPage() {
               imageUrl={activeCut?.imageUrl ?? null}
               objects={objects}
               onChange={setObjects}
-              maskMode={isMaskMode}
+              tool={tool}
+              brush={brush}
+              filters={filters}
+              hiddenIds={hiddenIds}
+              lockedIds={lockedIds}
               maskCanvasRef={maskCanvasRef}
             />
 
@@ -314,13 +388,19 @@ export default function EditPage() {
                   선택
                 </button>
                 <button
+                  onClick={() => { setTool("brush"); clearMask(); setSelectedId(null); }}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tool === "brush" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
+                >
+                  브러시
+                </button>
+                <button
                   onClick={() => setTool("mask")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tool === "mask" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
                 >
                   마스크 브러시
                 </button>
               </div>
-              {isMaskMode && (
+              {tool === "mask" && (
                 <button onClick={clearMask} className="text-xs text-gray-500 hover:text-black">
                   마스크 초기화
                 </button>
@@ -328,7 +408,7 @@ export default function EditPage() {
             </div>
 
             {/* 인페인트 패널 (마스크 모드일 때만) */}
-            {isMaskMode && (
+            {tool === "mask" && (
               <div className="bg-white border rounded-xl p-3 flex flex-col gap-2">
                 <p className="text-xs text-gray-500">변경할 내용을 입력하세요</p>
                 <div className="flex gap-2">
@@ -366,6 +446,15 @@ export default function EditPage() {
             characterImages={characters.map((c) => ({
               id: c.id, name: c.name, imageUrl: c.referenceImageUrl,
             }))}
+            tool={tool}
+            brush={brush}
+            onBrushChange={setBrush}
+            filters={filters}
+            onFiltersChange={setFilters}
+            hiddenIds={hiddenIds}
+            lockedIds={lockedIds}
+            onToggleHidden={toggleHidden}
+            onToggleLocked={toggleLocked}
           />
         </div>
       </div>

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import StatsView from "./StatsView";
 
 export default function AdminIndex() {
-  redirect("/admin/users");
+  return <StatsView />;
 }

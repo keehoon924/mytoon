@@ -20,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="mx-auto max-w-6xl px-6 py-6 flex gap-6">
         <aside className="w-44 shrink-0">
           <nav className="flex flex-col gap-1 text-sm">
+            <Link href="/admin" className="rounded px-3 py-2 hover:bg-white">통계</Link>
             <Link href="/admin/users" className="rounded px-3 py-2 hover:bg-white">사용자</Link>
             <Link href="/admin/projects" className="rounded px-3 py-2 hover:bg-white">작품</Link>
             <Link href="/admin/presets" className="rounded px-3 py-2 hover:bg-white">프리셋 캐릭터</Link>

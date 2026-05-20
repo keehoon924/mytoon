@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET must be set in production");
@@ -8,11 +9,25 @@ if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret");
 const COOKIE = "mytoon_session";
+const ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
 
 export type SessionPayload = {
   userId: string;
   role: "USER" | "ADMIN";
 };
+
+function touchLastActive(userId: string) {
+  prisma.user.updateMany({
+    where: {
+      id: userId,
+      OR: [
+        { lastActiveAt: null },
+        { lastActiveAt: { lt: new Date(Date.now() - ACTIVE_THROTTLE_MS) } },
+      ],
+    },
+    data: { lastActiveAt: new Date() },
+  }).catch(() => {});
+}
 
 export async function signToken(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload)
@@ -35,13 +50,17 @@ export async function getSession(): Promise<SessionPayload | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
-  return verifyToken(token);
+  const payload = await verifyToken(token);
+  if (payload) touchLastActive(payload.userId);
+  return payload;
 }
 
 export async function getSessionFromRequest(req: NextRequest): Promise<SessionPayload | null> {
   const token = req.cookies.get(COOKIE)?.value;
   if (!token) return null;
-  return verifyToken(token);
+  const payload = await verifyToken(token);
+  if (payload) touchLastActive(payload.userId);
+  return payload;
 }
 
 export function sessionCookieOptions(token: string) {

@@ -29,6 +29,7 @@ model User {
   creditBalance   Int       @default(50)
   role            Role      @default(USER)
   emailVerifiedAt DateTime?
+  lastActiveAt    DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -40,6 +41,8 @@ model User {
   paymentOrders      PaymentOrder[]
   reportsFiled       Report[] @relation("ReportReporter")
   reportsResolved    Report[] @relation("ReportResolver")
+
+  @@index([lastActiveAt])
 }
 
 model Folder {

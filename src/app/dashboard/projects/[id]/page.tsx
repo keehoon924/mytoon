@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import ReportModal from "@/components/ReportModal";
 
 type Bubble = { id: string; type: string; text: string; x: number; y: number; w: number; h: number };
 type Cut = { id: string; orderIndex: number; imageUrl: string | null; prompt: string | null; bubbles: Bubble[] };
@@ -24,6 +25,7 @@ export default function ProjectPage() {
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,8 +79,23 @@ export default function ProjectPage() {
           >
             내보내기
           </button>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="text-xs text-gray-400 hover:text-red-500"
+            title="신고"
+          >
+            신고
+          </button>
         </div>
       </header>
+
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="PROJECT"
+        targetId={project.id}
+        targetLabel={project.title}
+      />
 
       <div className="mx-auto max-w-2xl px-4 py-8">
         {project.status === "generating" && (

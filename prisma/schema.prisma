@@ -38,6 +38,8 @@ model User {
   projects           Project[]
   folders            Folder[]
   paymentOrders      PaymentOrder[]
+  reportsFiled       Report[] @relation("ReportReporter")
+  reportsResolved    Report[] @relation("ReportResolver")
 }
 
 model Folder {
@@ -149,6 +151,47 @@ model Bubble {
   createdAt DateTime @default(now())
 
   cut Cut @relation(fields: [cutId], references: [id], onDelete: Cascade)
+}
+
+enum ReportTargetType {
+  PROJECT
+  CHARACTER
+}
+
+enum ReportReason {
+  SPAM
+  ADULT
+  VIOLENCE
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED_DELETED
+  RESOLVED_DISMISSED
+  RESOLVED_HOLD
+}
+
+model Report {
+  id           String           @id @default(cuid())
+  reporterId   String
+  targetType   ReportTargetType
+  targetId     String
+  reason       ReportReason
+  detail       String?
+  status       ReportStatus     @default(PENDING)
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  reporter   User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status])
+  @@index([targetType, targetId])
 }
 
 enum PaymentStatus {

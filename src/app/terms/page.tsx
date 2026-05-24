@@ -44,7 +44,7 @@ export default function TermsPage() {
           <section id="section-1">
             <h2 className="mb-3 text-lg font-bold text-gray-900">제 1조 서비스 소개</h2>
             <p>
-              MyToon(이하 "서비스")은 MyToon 운영팀이 제공하는 AI 기반 인스타툰 창작 웹 서비스입니다.
+              MyToon(이하 &ldquo;서비스&rdquo;)은 MyToon 운영팀이 제공하는 AI 기반 인스타툰 창작 웹 서비스입니다.
               이용자는 본 약관에 동의함으로써 서비스를 이용할 수 있습니다.
             </p>
           </section>

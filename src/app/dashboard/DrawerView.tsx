@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 type Folder = { id: string; name: string; parentId: string | null };
 type Project = {
@@ -144,11 +143,7 @@ function FolderNode({
 
 type MenuState = { projectId: string; x: number; y: number } | null;
 
-export default function DrawerView({
-  userEmail: _u,
-  creditBalance: _c,
-  isAdmin: _a,
-}: Props) {
+export default function DrawerView({}: Props) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +154,6 @@ export default function DrawerView({
   const [renameValue, setRenameValue] = useState("");
   const [movingId, setMovingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;

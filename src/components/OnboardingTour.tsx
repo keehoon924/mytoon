@@ -2,38 +2,41 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import OnboardingIllustration from "@/components/illustrations/OnboardingIllustration";
+
+type StepKey = "welcome" | "character" | "generate" | "export";
 
 type Step = {
   title: string;
   description: string;
-  emoji: string;
+  illustrationKey: StepKey;
   cta?: string;
 };
 
 const STEPS: Step[] = [
   {
-    emoji: "🎉",
+    illustrationKey: "welcome",
     title: "MyToon에 오신 걸 환영해요!",
     description:
       "한 줄 설명만 입력하면 AI가 4컷 인스타툰을 만들어 드려요. 지금 바로 시작해 보세요!",
     cta: "둘러보기",
   },
   {
-    emoji: "🙂",
+    illustrationKey: "character",
     title: "캐릭터를 먼저 만들어요",
     description:
       "나만의 캐릭터를 등록하면 모든 컷에 같은 캐릭터가 일관되게 등장해요. 사진, 텍스트 설명, 프리셋 중 원하는 방식으로 만들 수 있어요.",
     cta: "다음",
   },
   {
-    emoji: "✍️",
+    illustrationKey: "generate",
     title: "주제를 입력하고 생성",
     description:
       "\"월급날의 현실\", \"강아지와의 산책\" 같은 간단한 주제만 입력하면 AI가 4컷 스토리를 완성해요.",
     cta: "다음",
   },
   {
-    emoji: "✏️",
+    illustrationKey: "export",
     title: "편집하고 내보내기",
     description:
       "생성된 컷에 말풍선을 추가하거나 브러시로 직접 그릴 수 있어요. 완성 후 PNG/JPG로 저장하거나 바로 공유하세요.",
@@ -93,8 +96,13 @@ export default function OnboardingTour({ onboardedAt, initialTopic }: Props) {
         </div>
 
         <div className="p-7">
-          {/* 이모지 */}
-          <div className="text-5xl text-center mb-4">{step.emoji}</div>
+          {/* 일러스트 */}
+          <div className="flex justify-center mb-4">
+            <OnboardingIllustration
+              step={step.illustrationKey}
+              className="w-40 h-36"
+            />
+          </div>
 
           {/* 제목 */}
           <h2 className="text-xl font-bold text-gray-900 text-center mb-2">{step.title}</h2>

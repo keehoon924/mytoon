@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import CutPlaceholder from "@/components/illustrations/CutPlaceholder";
 
 type ArtStyle = "감성손그림" | "심플카툰" | "수채화" | "전체";
 type Topic = "일상" | "재테크" | "힐링" | "전체";
@@ -259,11 +260,12 @@ export default function ExamplesPage() {
                 {/* 컷 미리보기 */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {item.cuts.slice(0, 4).map((cut, i) => (
-                    <div
-                      key={i}
-                      className="flex h-20 items-center justify-center rounded-lg bg-[#F0F7F2] text-3xl"
-                    >
-                      {cut.emoji}
+                    <div key={i} className="h-20 rounded-lg overflow-hidden">
+                      <CutPlaceholder
+                        index={i}
+                        artStyle={item.artStyle}
+                        caption={cut.caption}
+                      />
                     </div>
                   ))}
                 </div>
@@ -333,8 +335,12 @@ export default function ExamplesPage() {
             <p className="mt-1 text-xs text-gray-500">{lightboxItem.description}</p>
 
             {/* 현재 컷 */}
-            <div className="mt-5 flex h-48 items-center justify-center rounded-xl bg-[#F0F7F2] text-7xl">
-              {lightboxItem.cuts[lightboxCutIndex].emoji}
+            <div className="mt-5 h-48 rounded-xl overflow-hidden">
+              <CutPlaceholder
+                index={lightboxCutIndex}
+                artStyle={lightboxItem.artStyle}
+                large
+              />
             </div>
             <p className="mt-3 text-center text-sm text-gray-700">
               {lightboxItem.cuts[lightboxCutIndex].caption}

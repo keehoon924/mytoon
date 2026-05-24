@@ -1,38 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fff7f3;
-  --foreground: #2a1f3d;
+  /* ── color tokens (style guide) ── */
+  --background: #f7f3ea;
+  --surface: #fbf8f1;
+  --surface-alt: #efe7d6;
+  --surface-soft: #f3ebdd;
+  --primary: #7c8b5b;
+  --primary-hover: #6a7a4c;
+  --primary-active: #596841;
+  --primary-foreground: #ffffff;
+  --accent: #d4a24e;
+  --accent-hover: #be8f42;
+  --accent-soft: #f3e1b9;
+  --text: #3a352c;
+  --text-muted: #8b8270;
+  --text-subtle: #aaa08f;
+  --border: #e2d9c8;
+  --border-strong: #cfc2ad;
+  --success: #6e9b6d;
+  --warning: #d4a24e;
+  --danger: #c46b5c;
+  --info: #7a9eae;
+  --overlay: rgba(58, 53, 44, 0.48);
+  --focus-ring: rgba(124, 139, 91, 0.28);
+
+  /* ── radius ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ── elevation ── */
+  --shadow-1: 0 1px 2px rgba(58, 53, 44, 0.04), 0 2px 6px rgba(58, 53, 44, 0.05);
+  --shadow-2: 0 4px 12px rgba(58, 53, 44, 0.08), 0 2px 4px rgba(58, 53, 44, 0.04);
+  --shadow-3: 0 12px 24px rgba(58, 53, 44, 0.12), 0 4px 8px rgba(58, 53, 44, 0.06);
+  --shadow-4: 0 20px 48px rgba(58, 53, 44, 0.18), 0 8px 16px rgba(58, 53, 44, 0.08);
+
+  /* ── fonts ── */
+  --font-heading: "Jua", system-ui, sans-serif;
+  --font-body: "Pretendard", system-ui, -apple-system, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-soft: var(--surface-soft);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --font-heading: var(--font-heading);
+  --font-sans: var(--font-body);
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, "Apple SD Gothic Neo",
-    "Pretendard", "Malgun Gothic", sans-serif;
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+  font-weight: 400;
 }
 
 @keyframes float-y {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }
 }
-
-.animate-float {
-  animation: float-y 6s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float-y 6s ease-in-out infinite;
-  animation-delay: -2s;
-}
-
-.animate-float-delayed-2 {
-  animation: float-y 6s ease-in-out infinite;
-  animation-delay: -4s;
-}
+.animate-float { animation: float-y 6s ease-in-out infinite; }
+.animate-float-delayed { animation: float-y 6s ease-in-out infinite; animation-delay: -2s; }
+.animate-float-delayed-2 { animation: float-y 6s ease-in-out infinite; animation-delay: -4s; }

@@ -36,6 +36,7 @@ export default function AdminPresetsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch("/api/admin/preset-characters")
       .then((r) => r.json())

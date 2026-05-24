@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
-import { adminGuard } from "@/lib/adminGuard";
+import { requireAdminFromRequest } from "@/lib/adminGuard";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionFromRequest(req);
-  const guard = await adminGuard(session);
-  if (guard) return guard;
+  const result = await requireAdminFromRequest(req);
+  if (!result.ok) return result.response;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? undefined;

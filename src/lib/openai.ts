@@ -121,7 +121,7 @@ export async function inpaintCutImageWithMask(
     .png()
     .toBuffer();
 
-  const imageFile = new File([normalizedImg], "image.png", { type: "image/png" });
+  const imageFile = new File([new Uint8Array(normalizedImg)], "image.png", { type: "image/png" });
 
   // 마스크 처리
   let maskFile: File | undefined;
@@ -150,7 +150,7 @@ export async function inpaintCutImageWithMask(
         .png()
         .toBuffer();
 
-      maskFile = new File([maskRgba], "mask.png", { type: "image/png" });
+      maskFile = new File([new Uint8Array(maskRgba)], "mask.png", { type: "image/png" });
     } catch (e) {
       console.error("mask processing error:", e);
       // 마스크 처리 실패 시 마스크 없이 진행
@@ -171,7 +171,9 @@ export async function inpaintCutImageWithMask(
 
   const res = await openai.images.edit(editParams);
 
-  const b64 = res.data?.[0]?.b64_json;
+  // res may be ImagesResponse or Stream depending on type overload
+  const imgRes = res as { data?: { b64_json?: string | null }[] };
+  const b64 = imgRes.data?.[0]?.b64_json;
   if (!b64) return IMG_PLACEHOLDER(prompt.slice(0, 20));
   return `data:image/png;base64,${b64}`;
 }

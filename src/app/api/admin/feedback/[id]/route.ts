@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
-import { adminGuard } from "@/lib/adminGuard";
+import { requireAdminFromRequest } from "@/lib/adminGuard";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -11,9 +10,8 @@ const patchSchema = z.object({
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const session = await getSessionFromRequest(req);
-  const guard = await adminGuard(session);
-  if (guard) return guard;
+  const result = await requireAdminFromRequest(req);
+  if (!result.ok) return result.response;
 
   const { id } = await params;
   const body = await req.json().catch(() => null);

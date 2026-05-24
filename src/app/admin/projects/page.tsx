@@ -35,6 +35,7 @@ export default function AdminProjectsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const url = q ? `/api/admin/projects?q=${encodeURIComponent(q)}` : "/api/admin/projects";
     fetch(url)

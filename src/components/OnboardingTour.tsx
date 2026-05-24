@@ -56,6 +56,7 @@ export default function OnboardingTour({ onboardedAt, initialTopic }: Props) {
   useEffect(() => {
     // onboardedAt이 없으면 자동으로 투어 표시
     if (!onboardedAt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(true);
     }
   }, [onboardedAt]);

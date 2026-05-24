@@ -1,17 +1,14 @@
 import Link from "next/link";
 
-/* 이미지 슬롯 placeholder — 실제 이미지 도착 시 <img>로 교체 */
-function Slot({ id, ratio = "1/1", label, className = "" }: { id: string; ratio?: string; label: string; className?: string }) {
+/* 이모지 placeholder 타일 — 실제 이미지 도착 시 <img>로 교체 (id는 매핑용) */
+function Slot({ id, ratio = "1/1", emoji = "🖼️", grad = "from-surface-alt to-[#d9c9a8]", className = "" }: { id?: string; ratio?: string; emoji?: string; grad?: string; className?: string }) {
   return (
     <div
-      className={`relative grid place-items-center overflow-hidden rounded-[var(--radius-lg)] border border-dashed border-line-strong bg-surface-alt/60 text-center ${className}`}
+      data-slot={id}
+      className={`grid place-items-center overflow-hidden rounded-[var(--radius-lg)] bg-gradient-to-br ${grad} ring-1 ring-white/40 ${className}`}
       style={{ aspectRatio: ratio }}
     >
-      <div className="px-2">
-        <div className="text-2xl opacity-40">🖼️</div>
-        <div className="mt-1 text-[10px] font-semibold text-subtle">{label}</div>
-        <div className="text-[9px] text-subtle/70">{id}</div>
-      </div>
+      <span className="text-5xl drop-shadow-sm">{emoji}</span>
     </div>
   );
 }
@@ -39,19 +36,28 @@ const steps = [
 ];
 
 const templates = [
-  { id: "기본 4컷", desc: "가장 기본적인 4컷 구성" },
-  { id: "세로 스토리형", desc: "몰입감 있는 세로 구성" },
-  { id: "말풍선 강조형", desc: "대화가 돋보이는 구성" },
-  { id: "노트 정리형", desc: "정보 전달에 좋은 구성" },
+  { id: "기본 4컷", desc: "가장 기본적인 4컷 구성", emoji: "🗨️" },
+  { id: "세로 스토리형", desc: "몰입감 있는 세로 구성", emoji: "📜" },
+  { id: "말풍선 강조형", desc: "대화가 돋보이는 구성", emoji: "💬" },
+  { id: "노트 정리형", desc: "정보 전달에 좋은 구성", emoji: "📔" },
 ];
 
 const characters = [
-  { name: "단순이", note: "심플한 일러스트" },
-  { name: "지혜", note: "갈끔한 톤 스타일" },
-  { name: "소담", note: "따뜻한 감성 스타일" },
-  { name: "한우", note: "단정한 남자 캐릭터" },
-  { name: "마루", note: "귀여운 강아지" },
-  { name: "토리", note: "귀여운 토끼" },
+  { name: "단순이", note: "심플한 일러스트", emoji: "👧" },
+  { name: "지혜", note: "깔끔한 톤 스타일", emoji: "👩" },
+  { name: "소담", note: "따뜻한 감성 스타일", emoji: "🧑‍🦱" },
+  { name: "한우", note: "단정한 남자 캐릭터", emoji: "🧑" },
+  { name: "마루", note: "귀여운 강아지", emoji: "🐶" },
+  { name: "토리", note: "귀여운 토끼", emoji: "🐰" },
+];
+
+const samples = [
+  { emoji: "☕", grad: "from-[#EFE7D6] to-[#d3c3a3]" },
+  { emoji: "🌙", grad: "from-[#dfe4d0] to-[#c2cca6]" },
+  { emoji: "🍜", grad: "from-[#f3e1b9] to-[#e3c489]" },
+  { emoji: "🚇", grad: "from-[#e6ddcb] to-[#cfc2ad]" },
+  { emoji: "🌷", grad: "from-[#ece2cf] to-[#d1c8aa]" },
+  { emoji: "💰", grad: "from-[#e9e0cc] to-[#cdd4b8]" },
 ];
 
 const features = [
@@ -138,7 +144,11 @@ export default function Home() {
           {/* 히어로 메인 만화 (워시테이프 액자) */}
           <div className="relative mx-auto w-full max-w-md">
             <TapedFrame className="rotate-1">
-              <Slot id="hero-comic.png" ratio="1/1" label="히어로 메인 4컷 만화" className="rounded-[var(--radius-lg)]" />
+              <div className="grid grid-cols-2 gap-2 rounded-[var(--radius-lg)] bg-surface-soft p-2" data-slot="hero-comic.png">
+                {["✍️", "📈", "📚", "🎉"].map((e, i) => (
+                  <div key={i} className="grid aspect-square place-items-center rounded-[var(--radius-md)] bg-gradient-to-br from-surface-alt to-[#d9c9a8] text-4xl ring-1 ring-white/40">{e}</div>
+                ))}
+              </div>
             </TapedFrame>
             <div className="absolute -bottom-4 -right-2 rotate-3 rounded-[var(--radius-md)] border border-line bg-surface px-3 py-2 text-xs font-semibold text-muted shadow-[var(--shadow-2)]">
               ♡ AI가 만든<br />나만의 인스타툰
@@ -170,7 +180,7 @@ export default function Home() {
           <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
             {templates.map((t, i) => (
               <div key={t.id}>
-                <Slot id={`template-${i + 1}.png`} ratio="4/5" label={t.id} />
+                <Slot id={`template-${i + 1}.png`} ratio="4/5" emoji={t.emoji} />
                 <p className="font-heading mt-2 text-sm text-ink">{t.id}</p>
                 <p className="text-xs text-subtle">{t.desc}</p>
               </div>
@@ -186,7 +196,7 @@ export default function Home() {
           <div className="mt-5 grid grid-cols-3 gap-4 sm:grid-cols-6">
             {characters.map((c, i) => (
               <div key={c.name} className="text-center">
-                <Slot id={`character-${i + 1}.png`} ratio="1/1" label={c.name} className="rounded-[var(--radius-xl)]" />
+                <Slot id={`character-${i + 1}.png`} ratio="1/1" emoji={c.emoji} grad="from-surface-soft to-surface-alt" className="rounded-[var(--radius-xl)]" />
                 <p className="font-heading mt-2 text-sm text-ink">{c.name}</p>
                 <p className="text-[11px] text-subtle">{c.note}</p>
               </div>
@@ -203,8 +213,8 @@ export default function Home() {
             <span className="text-sm text-muted">우리 AI가 만든 컷들</span>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3">
-            {Array.from({ length: 6 }, (_, i) => (
-              <Slot key={i} id={`sample-${i + 1}.png`} ratio="1/1" label={`샘플 인스타툰 ${i + 1}`} className="rounded-[var(--radius-xl)]" />
+            {samples.map((s, i) => (
+              <Slot key={i} id={`sample-${i + 1}.png`} ratio="1/1" emoji={s.emoji} grad={s.grad} className="rounded-[var(--radius-xl)]" />
             ))}
           </div>
         </div>
@@ -218,7 +228,7 @@ export default function Home() {
             <p className="mt-3 text-muted">AI 캐릭터로 일관된 콘텐츠를 쉽고 빠르게!</p>
             <Link href="/signup" className="mt-6 inline-block rounded-full bg-primary px-7 py-3.5 text-sm font-bold text-white shadow-[var(--shadow-2)] transition hover:bg-primary-hover">캐릭터 만들러 가기 →</Link>
           </div>
-          <Slot id="cta-group.png" ratio="16/10" label="그룹 일러스트 (캐릭터 3~4명 + 동물)" className="rounded-[var(--radius-xl)]" />
+          <Slot id="cta-group.png" ratio="16/10" emoji="🧑‍💻" grad="from-surface to-surface-alt" className="rounded-[var(--radius-xl)]" />
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import { getSessionFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateScenario, generateCutImage } from "@/lib/openai";
 import { checkAndDeductCredits, refundCredits } from "@/lib/credits";
+import { moderateText, getModerationMessage } from "@/lib/moderation";
 
 const schema = z.object({
   story: z.string().default(""),
@@ -32,6 +33,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { story, characterIds, mode, manualScenarios, template: _template, artStyle } = parsed.data;
   const cutCount = project.cutCount;
+
+  // 모더레이션 체크
+  if (story) {
+    const mod = await moderateText(story);
+    if (mod.flagged) {
+      return NextResponse.json(
+        { error: getModerationMessage(mod.categories) },
+        { status: 422 }
+      );
+    }
+  }
 
   const credit = await checkAndDeductCredits(session.userId, session.role, cutCount);
   if (!credit.ok) {

@@ -90,7 +90,8 @@ export default function ProjectPage() {
       }
     }, 3000);
     return () => clearInterval(timer);
-  }, [id, project?.status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, project?.status]); // project is stable for polling purposes
 
   async function handleRegenerate() {
     if (!project) return;

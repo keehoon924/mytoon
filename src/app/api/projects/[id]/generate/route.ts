@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "입력값 오류" }, { status: 400 });
 
-  const { story, characterIds, mode, manualScenarios, template: _template, artStyle } = parsed.data;
+  const { story, characterIds, mode, manualScenarios, artStyle } = parsed.data;
   const cutCount = project.cutCount;
 
   // 모더레이션 체크

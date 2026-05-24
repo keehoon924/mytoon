@@ -37,6 +37,7 @@ export async function checkAndDeductCredits(
 export async function refundCredits(
   userId: string,
   amount: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _reason: "REFUND_GENERATION_FAILURE" | "ADMIN" = "REFUND_GENERATION_FAILURE"
 ): Promise<void> {
   if (amount <= 0) return;

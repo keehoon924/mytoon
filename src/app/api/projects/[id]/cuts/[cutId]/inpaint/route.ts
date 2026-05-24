@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { inpaintCutImage } from "@/lib/openai";
-import { checkAndDeductCredits } from "@/lib/credits";
+import { inpaintCutImageWithMask } from "@/lib/openai";
+import { checkAndDeductCredits, refundCredits } from "@/lib/credits";
 
 const schema = z.object({
   prompt: z.string().min(1),
+  maskBase64: z.string().optional(), // 알파 마스크 PNG base64
 });
 
 type RouteParams = { params: Promise<{ id: string; cutId: string }> };
@@ -37,15 +38,28 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const newImageUrl = await inpaintCutImage(cut.imageUrl, parsed.data.prompt);
+  try {
+    const newImageUrl = await inpaintCutImageWithMask(
+      cut.imageUrl,
+      parsed.data.prompt,
+      parsed.data.maskBase64
+    );
 
-  const updated = await prisma.cut.update({
-    where: { id: cutId },
-    data: {
-      imageUrl: newImageUrl,
-      previousImageUrl: cut.imageUrl,
-    },
-  });
+    const updated = await prisma.cut.update({
+      where: { id: cutId },
+      data: {
+        imageUrl: newImageUrl,
+        previousImageUrl: cut.imageUrl,
+      },
+    });
 
-  return NextResponse.json({ cut: updated });
+    return NextResponse.json({ cut: updated });
+  } catch (err) {
+    // 실패 시 크레딧 환불
+    if (session.role !== "ADMIN") {
+      await refundCredits(session.userId, 1, "REFUND_GENERATION_FAILURE");
+    }
+    console.error("inpaint error:", err);
+    return NextResponse.json({ error: "인페인팅 중 오류가 발생했습니다." }, { status: 500 });
+  }
 }

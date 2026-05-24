@@ -274,10 +274,23 @@ export default function EditPage() {
     if (!cut || !inpaintPrompt.trim()) return;
     setOpError("");
     setInpainting(true);
+
+    // 마스크 캔버스를 base64 PNG로 변환
+    let maskBase64: string | undefined;
+    const maskCanvas = maskCanvasRef.current;
+    if (maskCanvas) {
+      try {
+        const dataUrl = maskCanvas.toDataURL("image/png");
+        maskBase64 = dataUrl.split(",")[1];
+      } catch {
+        // 마스크 추출 실패 시 무시
+      }
+    }
+
     const res = await fetch(`/api/projects/${id}/cuts/${cut.id}/inpaint`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: inpaintPrompt }),
+      body: JSON.stringify({ prompt: inpaintPrompt, maskBase64 }),
     });
     const data = await res.json();
     setInpainting(false);

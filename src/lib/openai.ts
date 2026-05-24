@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import sharp from "sharp";
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -85,20 +86,90 @@ export async function generateScenario(
 
 // ── 컷 인페인팅 ──────────────────────────────────────────────
 
+/**
+ * 레거시: 마스크 없이 전체 이미지 edit
+ */
 export async function inpaintCutImage(imageUrl: string, prompt: string): Promise<string> {
+  return inpaintCutImageWithMask(imageUrl, prompt, undefined);
+}
+
+/**
+ * 마스크 기반 인페인팅 (sharp로 알파 마스크 처리)
+ * maskBase64: 클라이언트에서 전송한 흑백 마스크 PNG base64
+ *   - 흰색(255) = 수정할 영역
+ *   - 검정(0) = 보존할 영역
+ */
+export async function inpaintCutImageWithMask(
+  imageUrl: string,
+  prompt: string,
+  maskBase64?: string
+): Promise<string> {
   if (!openai) return IMG_PLACEHOLDER(prompt.slice(0, 20));
 
-  const imgRes = await fetch(imageUrl);
-  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-  const imageFile = new File([imgBuffer], "image.png", { type: "image/png" });
+  // 원본 이미지 로드
+  let imgBuffer: Buffer;
+  if (imageUrl.startsWith("data:")) {
+    imgBuffer = Buffer.from(imageUrl.split(",")[1], "base64");
+  } else {
+    const imgRes = await fetch(imageUrl);
+    imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+  }
 
-  const res = await openai.images.edit({
+  // 1024x1024 PNG로 정규화
+  const normalizedImg = await sharp(imgBuffer)
+    .resize(1024, 1024, { fit: "cover" })
+    .png()
+    .toBuffer();
+
+  const imageFile = new File([normalizedImg], "image.png", { type: "image/png" });
+
+  // 마스크 처리
+  let maskFile: File | undefined;
+  if (maskBase64) {
+    try {
+      const maskBuf = Buffer.from(maskBase64, "base64");
+      // 마스크를 알파 채널로 변환:
+      // 흰색 픽셀 → 투명 (수정할 영역), 검정 → 불투명 (보존 영역)
+      const alphaMask = await sharp(maskBuf)
+        .resize(1024, 1024)
+        .greyscale()
+        .negate() // 반전: 흰색(수정)→0, 검정(보존)→255
+        .png()
+        .toBuffer();
+
+      // RGBA 이미지 생성: R=G=B=0, A=alphaMask
+      const maskRgba = await sharp({
+        create: {
+          width: 1024,
+          height: 1024,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        },
+      })
+        .composite([{ input: alphaMask, blend: "dest-in" }])
+        .png()
+        .toBuffer();
+
+      maskFile = new File([maskRgba], "mask.png", { type: "image/png" });
+    } catch (e) {
+      console.error("mask processing error:", e);
+      // 마스크 처리 실패 시 마스크 없이 진행
+    }
+  }
+
+  const editParams: Parameters<typeof openai.images.edit>[0] = {
     model: "gpt-image-1",
     image: imageFile,
-    prompt: `Webtoon comic panel edit. ${prompt}. Maintain Korean cartoon style, keep unchanged areas identical.`,
+    prompt: `Webtoon comic panel edit. ${prompt}. Maintain Korean cartoon style.`,
     n: 1,
     size: "1024x1024",
-  });
+  };
+
+  if (maskFile) {
+    editParams.mask = maskFile;
+  }
+
+  const res = await openai.images.edit(editParams);
 
   const b64 = res.data?.[0]?.b64_json;
   if (!b64) return IMG_PLACEHOLDER(prompt.slice(0, 20));

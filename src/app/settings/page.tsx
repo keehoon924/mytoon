@@ -32,6 +32,17 @@ export default async function SettingsPage() {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      feedbacks: {
+        select: {
+          id: true,
+          category: true,
+          message: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
     },
   });
 
@@ -57,6 +68,13 @@ export default async function SettingsPage() {
         reason: r.reason,
         status: r.status,
         createdAt: r.createdAt.toISOString(),
+      }))}
+      myFeedbacks={user.feedbacks.map((f) => ({
+        id: f.id,
+        category: f.category,
+        message: f.message,
+        status: f.status,
+        createdAt: f.createdAt.toISOString(),
       }))}
     />
   );

@@ -20,6 +20,14 @@ type MyReport = {
   createdAt: string;
 };
 
+type MyFeedback = {
+  id: string;
+  category: string;
+  message: string;
+  status: string;
+  createdAt: string;
+};
+
 type Props = {
   email: string;
   creditBalance: number;
@@ -28,6 +36,7 @@ type Props = {
   joinedAt: string;
   creditHistory: CreditTx[];
   myReports: MyReport[];
+  myFeedbacks: MyFeedback[];
 };
 
 type Tab = "account" | "credits" | "reports";
@@ -47,6 +56,17 @@ const REPORT_STATUS_LABEL: Record<string, string> = {
   RESOLVED_HOLD: "처리 완료 (보류)",
 };
 
+const FEEDBACK_CATEGORY_LABEL: Record<string, string> = {
+  BUG: "버그 신고",
+  REQUEST: "기능 요청",
+  INQUIRY: "기타 문의",
+};
+
+const FEEDBACK_STATUS_LABEL: Record<string, string> = {
+  OPEN: "접수됨",
+  DONE: "처리 완료",
+};
+
 export default function SettingsView({
   email,
   creditBalance,
@@ -55,6 +75,7 @@ export default function SettingsView({
   joinedAt,
   creditHistory,
   myReports,
+  myFeedbacks: initialFeedbacks,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("account");
   const router = useRouter();
@@ -108,6 +129,42 @@ export default function SettingsView({
       router.push("/");
     } else {
       alert("탈퇴 처리 중 오류가 발생했습니다.");
+    }
+  }
+
+  // 피드백
+  const [feedbacks, setFeedbacks] = useState(initialFeedbacks);
+  const [fbCategory, setFbCategory] = useState<"BUG" | "REQUEST" | "INQUIRY">("INQUIRY");
+  const [fbMessage, setFbMessage] = useState("");
+  const [fbError, setFbError] = useState("");
+  const [fbSuccess, setFbSuccess] = useState(false);
+  const [fbLoading, setFbLoading] = useState(false);
+
+  async function handleSubmitFeedback(e: React.FormEvent) {
+    e.preventDefault();
+    setFbError("");
+    setFbSuccess(false);
+    if (fbMessage.trim().length < 5) {
+      setFbError("내용을 5자 이상 입력해 주세요.");
+      return;
+    }
+    setFbLoading(true);
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: fbCategory, message: fbMessage.trim() }),
+    });
+    const data = await res.json();
+    setFbLoading(false);
+    if (!res.ok) {
+      setFbError(data.error ?? "오류가 발생했습니다.");
+      return;
+    }
+    setFbSuccess(true);
+    setFbMessage("");
+    // prepend new feedback to list
+    if (data.feedback) {
+      setFeedbacks((prev) => [data.feedback, ...prev]);
     }
   }
 
@@ -360,19 +417,82 @@ export default function SettingsView({
               )}
             </div>
 
-            {/* 피드백 링크 */}
+            {/* 피드백 폼 */}
             <div className="rounded-xl border border-[#E8F0EB] bg-white p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">피드백 보내기</h2>
-              <p className="text-xs text-gray-400 mb-3">
-                버그 신고, 기능 요청, 기타 문의는 이메일로 보내주세요.
-              </p>
-              <a
-                href="mailto:edcrfv51@gmail.com?subject=MyToon 피드백"
-                className="inline-block rounded-full border border-[#7CAF8A] px-5 py-2 text-sm font-medium text-[#7CAF8A] hover:bg-[#F0F7F2]"
-              >
-                피드백 보내기
-              </a>
+              <h2 className="text-sm font-semibold text-gray-700 mb-4">피드백 보내기</h2>
+              {fbSuccess && (
+                <div className="mb-4 rounded-lg bg-[#F0F7F2] border border-[#7CAF8A] p-3 text-sm text-[#5A8F6A]">
+                  피드백이 접수되었습니다. 감사합니다!
+                </div>
+              )}
+              <form onSubmit={handleSubmitFeedback} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">유형</label>
+                  <select
+                    value={fbCategory}
+                    onChange={(e) => setFbCategory(e.target.value as "BUG" | "REQUEST" | "INQUIRY")}
+                    className="w-full rounded-lg border border-[#E8F0EB] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#7CAF8A]"
+                  >
+                    <option value="BUG">버그 신고</option>
+                    <option value="REQUEST">기능 요청</option>
+                    <option value="INQUIRY">기타 문의</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">내용</label>
+                  <textarea
+                    value={fbMessage}
+                    onChange={(e) => setFbMessage(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="불편한 점이나 개선 사항을 알려주세요. (최소 5자)"
+                    className="w-full rounded-lg border border-[#E8F0EB] px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#7CAF8A]"
+                  />
+                  <p className="text-right text-xs text-gray-400 mt-1">{fbMessage.length}/2000</p>
+                </div>
+                {fbError && <p className="text-xs text-red-500">{fbError}</p>}
+                <button
+                  type="submit"
+                  disabled={fbLoading}
+                  className="rounded-full bg-[#7CAF8A] px-5 py-2 text-sm font-medium text-white hover:bg-[#6A9E78] disabled:opacity-50"
+                >
+                  {fbLoading ? "전송 중..." : "피드백 보내기"}
+                </button>
+              </form>
             </div>
+
+            {/* 보낸 피드백 내역 */}
+            {feedbacks.length > 0 && (
+              <div className="rounded-xl border border-[#E8F0EB] bg-white p-5">
+                <h2 className="text-sm font-semibold text-gray-700 mb-4">보낸 피드백 내역</h2>
+                <div className="space-y-3">
+                  {feedbacks.map((fb) => (
+                    <div key={fb.id} className="rounded-lg border border-[#E8F0EB] p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-[#7CAF8A]">
+                          {FEEDBACK_CATEGORY_LABEL[fb.category] ?? fb.category}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              fb.status === "DONE"
+                                ? "bg-[#E8F0EB] text-[#7CAF8A]"
+                                : "bg-amber-100 text-amber-600"
+                            }`}
+                          >
+                            {FEEDBACK_STATUS_LABEL[fb.status] ?? fb.status}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(fb.createdAt).toLocaleDateString("ko-KR")}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 line-clamp-2">{fb.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -105,6 +105,7 @@ export default function EditPage() {
   const [showVersionDrawer, setShowVersionDrawer] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [autosaveTick, setAutosaveTick] = useState(0);
+  const [showCharPicker, setShowCharPicker] = useState(false);
   const dirtyRef = useRef(false);
 
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -302,7 +303,11 @@ export default function EditPage() {
   }
 
   function handleAddCharacter() {
-    const char = characters[0];
+    setShowCharPicker(true);
+  }
+
+  function addCharacterById(charId: string) {
+    const char = characters.find((c) => c.id === charId);
     if (!char || !char.referenceImageUrl) return;
     const newObj: CanvasObject = {
       id: nanoid(),
@@ -314,6 +319,7 @@ export default function EditPage() {
       zIndex: objects.length,
     };
     setObjects((prev) => [...prev, newObj]);
+    setShowCharPicker(false);
   }
 
   function handleMoveZ(objId: string, dir: "up" | "down") {
@@ -354,6 +360,19 @@ export default function EditPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-gray-50">
+      {/* 모바일 경고 */}
+      <div className="md:hidden flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+        <p className="text-xs text-amber-700">
+          편집 기능은 PC 환경을 권장합니다. 모바일에서는 일부 기능이 제한될 수 있습니다.
+        </p>
+        <Link
+          href={`/dashboard/projects/${id}`}
+          className="shrink-0 text-xs font-medium text-amber-600 underline"
+        >
+          뒤로
+        </Link>
+      </div>
+
       <header className="border-b bg-white px-6 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <Link href={`/dashboard/projects/${id}`} className="text-gray-500 hover:text-black text-sm">←</Link>
@@ -524,6 +543,52 @@ export default function EditPage() {
           />
         </div>
       </div>
+
+      {/* 캐릭터 선택 모달 */}
+      {showCharPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setShowCharPicker(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold text-gray-900 mb-4">캐릭터 추가</h3>
+            {characters.length === 0 ? (
+              <p className="text-sm text-gray-400">등록된 캐릭터가 없습니다.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {characters.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => addCharacterById(c.id)}
+                    className="flex flex-col items-center gap-1.5 rounded-xl border border-[#E8F0EB] p-2 hover:border-[#7CAF8A] hover:bg-[#F0F7F2]"
+                  >
+                    {c.referenceImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={c.referenceImageUrl}
+                        alt={c.name}
+                        className="h-14 w-14 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-full bg-[#F0F7F2] flex items-center justify-center text-2xl">🙂</div>
+                    )}
+                    <span className="text-xs text-gray-700 text-center truncate w-full">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setShowCharPicker(false)}
+              className="mt-4 w-full rounded-full border border-gray-200 py-2 text-sm text-gray-500 hover:bg-gray-50"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

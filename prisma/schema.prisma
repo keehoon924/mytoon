@@ -139,21 +139,23 @@ model Cut {
 }
 
 model Bubble {
-  id        String   @id @default(cuid())
-  cutId     String
-  type      String   @default("speech")
-  text      String
-  font      String   @default("default")
-  color     String   @default("#111111")
-  fontSize  Int      @default(14)
-  bold      Boolean  @default(false)
-  x         Float    @default(0)
-  y         Float    @default(0)
-  w         Float    @default(200)
-  h         Float    @default(80)
-  rotation  Float    @default(0)
-  zIndex    Int      @default(0)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  cutId      String
+  type       String   @default("speech")
+  bubbleType String   @default("speech")
+  text       String
+  font       String   @default("default")
+  fontFamily String   @default("default")
+  color      String   @default("#111111")
+  fontSize   Int      @default(14)
+  bold       Boolean  @default(false)
+  x          Float    @default(0)
+  y          Float    @default(0)
+  w          Float    @default(200)
+  h          Float    @default(80)
+  rotation   Float    @default(0)
+  zIndex     Int      @default(0)
+  createdAt  DateTime @default(now())
 
   cut Cut @relation(fields: [cutId], references: [id], onDelete: Cascade)
 }

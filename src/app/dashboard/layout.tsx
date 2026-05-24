@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import DashboardShell from "./DashboardShell";
+import OnboardingTour from "@/components/OnboardingTour";
 
 export default async function DashboardLayout({
   children,
@@ -18,6 +19,7 @@ export default async function DashboardLayout({
       creditBalance: true,
       role: true,
       emailVerifiedAt: true,
+      onboardedAt: true,
     },
   });
 
@@ -29,6 +31,9 @@ export default async function DashboardLayout({
       emailVerified={!!user?.emailVerifiedAt}
     >
       {children}
+      <OnboardingTour
+        onboardedAt={user?.onboardedAt?.toISOString() ?? null}
+      />
     </DashboardShell>
   );
 }

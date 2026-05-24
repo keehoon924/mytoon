@@ -107,23 +107,76 @@ export async function inpaintCutImage(imageUrl: string, prompt: string): Promise
 
 // ── 컷 이미지 생성 ─────────────────────────────────────────────
 
+/**
+ * 컷 이미지 생성.
+ * - referenceImageUrls 가 있으면 gpt-image-1 images.edit (참조 이미지 기반, 캐릭터 일관성)
+ * - 없으면 gpt-image-1 images.generate (텍스트 기반)
+ */
 export async function generateCutImage(
   description: string,
-  characterPrompts: string[]
+  characterPrompts: string[],
+  referenceImageUrls: string[] = [],
+  artStyle?: string
 ): Promise<string> {
   if (!openai) return IMG_PLACEHOLDER(description.slice(0, 20));
 
+  const styleDesc = artStyle
+    ? {
+        감성손그림: "Warm hand-drawn illustration style, soft lines",
+        심플카툰: "Simple flat cartoon style, bold outlines",
+        수채화: "Watercolor illustration style, soft colors",
+      }[artStyle] ?? ""
+    : "";
+
   const charDesc =
     characterPrompts.length > 0
-      ? `Characters: ${characterPrompts.join(", ")}. `
+      ? `Characters in this scene: ${characterPrompts.join(", ")}. `
       : "";
 
+  const prompt = `Korean webtoon comic panel. ${charDesc}${styleDesc ? styleDesc + ". " : ""}Scene: ${description}. 1:1 square, clean illustration, simple background.`;
+
+  // 참조 이미지가 있는 경우: gpt-image-1 edit API로 캐릭터 일관성 유지
+  if (referenceImageUrls.length > 0) {
+    try {
+      const firstRefUrl = referenceImageUrls[0];
+      let imageFile: File;
+
+      if (firstRefUrl.startsWith("data:")) {
+        // base64 data URL
+        const b64 = firstRefUrl.split(",")[1];
+        const buf = Buffer.from(b64, "base64");
+        imageFile = new File([buf], "reference.png", { type: "image/png" });
+      } else {
+        // 외부 URL
+        const resp = await fetch(firstRefUrl);
+        const buf = Buffer.from(await resp.arrayBuffer());
+        imageFile = new File([buf], "reference.png", { type: "image/png" });
+      }
+
+      const res = await openai.images.edit({
+        model: "gpt-image-1",
+        image: imageFile,
+        prompt: `Create a new webtoon comic panel featuring the character from the reference image. ${prompt} Keep the character's appearance consistent with the reference.`,
+        n: 1,
+        size: "1024x1024",
+      });
+      const b64 = res.data?.[0]?.b64_json;
+      if (b64) return `data:image/png;base64,${b64}`;
+    } catch (err) {
+      console.error("generateCutImage (edit) error:", err);
+      // 폴백: 텍스트 기반 생성으로
+    }
+  }
+
+  // 텍스트 기반 생성: gpt-image-1 generate
   const res = await openai.images.generate({
-    model: "dall-e-3",
-    prompt: `Webtoon comic panel. ${charDesc}Scene: ${description}. Korean cartoon style, 1:1 square, clean illustration, simple background.`,
+    model: "gpt-image-1",
+    prompt,
     n: 1,
     size: "1024x1024",
     quality: "standard",
   });
+  const b64 = res.data?.[0]?.b64_json;
+  if (b64) return `data:image/png;base64,${b64}`;
   return res.data?.[0]?.url ?? IMG_PLACEHOLDER(description.slice(0, 20));
 }

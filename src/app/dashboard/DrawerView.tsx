@@ -11,9 +11,9 @@ type Project = {
 };
 
 type Props = {
-  userEmail: string;
-  creditBalance: number;
-  isAdmin: boolean;
+  userEmail?: string;
+  creditBalance?: number;
+  isAdmin?: boolean;
 };
 
 function buildTree(folders: Folder[]) {
@@ -98,7 +98,7 @@ function FolderNode({
   );
 }
 
-export default function DrawerView({ userEmail, creditBalance, isAdmin }: Props) {
+export default function DrawerView({ userEmail: _userEmail, creditBalance: _creditBalance, isAdmin: _isAdmin }: Props) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -174,27 +174,7 @@ export default function DrawerView({ userEmail, creditBalance, isAdmin }: Props)
   const visibleProjects = projects.filter((p) => (p.folderId ?? null) === selectedFolderId);
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white px-6 py-4 flex items-center justify-between">
-        <span className="font-bold text-gray-900">MyToon</span>
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <Link href="/dashboard/characters" className="hover:text-black">내 캐릭터</Link>
-          <Link href="/dashboard/reports" className="hover:text-black">내 신고</Link>
-          {isAdmin && <Link href="/admin" className="text-purple-600 hover:text-purple-800">어드민</Link>}
-          {isAdmin ? (
-            <span className="font-medium text-purple-600">관리자 (무제한)</span>
-          ) : (
-            <Link href="/dashboard/credits" className="hover:text-black">
-              크레딧 <strong className="text-black">{creditBalance}</strong>개 <span className="text-xs text-blue-600">+ 충전</span>
-            </Link>
-          )}
-          <span className="text-gray-400 text-xs">{userEmail}</span>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="text-gray-400 hover:text-gray-700">로그아웃</button>
-          </form>
-        </div>
-      </header>
-
+    <main className="min-h-screen bg-[#FFFBF5]">
       <div className="mx-auto max-w-6xl px-6 py-8 flex gap-6">
         {/* 폴더 사이드바 */}
         <aside className="w-56 shrink-0">

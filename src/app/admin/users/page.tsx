@@ -3,28 +3,39 @@
 import { useEffect, useState } from "react";
 
 type User = {
-  id: string; email: string; role: "USER" | "ADMIN";
-  creditBalance: number; createdAt: string;
+  id: string;
+  email: string;
+  role: "USER" | "ADMIN";
+  creditBalance: number;
+  createdAt: string;
+  lastActiveAt: string | null;
+  emailVerifiedAt: string | null;
   _count: { projects: number };
 };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [q, setQ] = useState("");
-  const [searchTick, setSearchTick] = useState(0);
+  const [inputQ, setInputQ] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deltaInput, setDeltaInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     const url = q ? `/api/admin/users?q=${encodeURIComponent(q)}` : "/api/admin/users";
-    fetch(url).then((r) => r.json()).then((data) => {
-      if (!cancelled && data.users) setUsers(data.users);
-    });
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.users) setUsers(data.users);
+        if (!cancelled) setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [searchTick, q]);
+  }, [q]);
 
   async function applyDelta(userId: string) {
     const n = Number(deltaInput);
@@ -32,7 +43,8 @@ export default function AdminUsersPage() {
       setError("0이 아닌 정수를 입력하세요.");
       return;
     }
-    setBusy(true); setError("");
+    setBusy(true);
+    setError("");
     const res = await fetch(`/api/admin/users/${userId}/credits`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,57 +52,108 @@ export default function AdminUsersPage() {
     });
     const data = await res.json();
     setBusy(false);
-    if (!res.ok) { setError(data.error ?? "실패"); return; }
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, creditBalance: data.balance } : u));
+    if (!res.ok) {
+      setError(data.error ?? "실패");
+      return;
+    }
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, creditBalance: data.balance } : u))
+    );
     setEditingId(null);
     setDeltaInput("");
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">사용자</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">사용자</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {loading ? "불러오는 중..." : `${users.length}명`}
+          </p>
+        </div>
         <form
-          onSubmit={(e) => { e.preventDefault(); setSearchTick((t) => t + 1); }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            setQ(inputQ.trim());
+          }}
           className="flex gap-2"
         >
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            value={inputQ}
+            onChange={(e) => setInputQ(e.target.value)}
             placeholder="이메일 검색"
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-black"
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 w-48"
           />
-          <button type="submit" className="rounded-lg bg-black px-3 py-1.5 text-sm text-white">검색</button>
+          <button
+            type="submit"
+            className="rounded-lg bg-purple-600 text-white text-sm px-4 py-1.5 hover:bg-purple-700"
+          >
+            검색
+          </button>
+          {q && (
+            <button
+              type="button"
+              onClick={() => { setQ(""); setInputQ(""); }}
+              className="rounded-lg border border-gray-200 text-sm px-3 py-1.5 text-gray-500 hover:bg-gray-50"
+            >
+              초기화
+            </button>
+          )}
         </form>
       </div>
 
-      {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-600">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
+          <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="px-3 py-2">이메일</th>
-              <th className="px-3 py-2">역할</th>
-              <th className="px-3 py-2 text-right">잔액</th>
-              <th className="px-3 py-2 text-right">작품</th>
-              <th className="px-3 py-2">가입일</th>
-              <th className="px-3 py-2">크레딧 조정</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">이메일</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">역할</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide">크레딧</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide">작품</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">가입일</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">크레딧 조정</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-50">
             {users.map((u) => (
-              <tr key={u.id} className="border-t">
-                <td className="px-3 py-2">{u.email}</td>
-                <td className="px-3 py-2">
-                  {u.role === "ADMIN" ? <span className="text-purple-600 font-medium">ADMIN</span> : "USER"}
+              <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-xs font-medium text-purple-700 shrink-0">
+                      {u.email[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-900">{u.email}</p>
+                      {!u.emailVerifiedAt && (
+                        <p className="text-xs text-amber-500">미인증</p>
+                      )}
+                    </div>
+                  </div>
                 </td>
-                <td className="px-3 py-2 text-right">{u.creditBalance.toLocaleString()}</td>
-                <td className="px-3 py-2 text-right">{u._count.projects}</td>
-                <td className="px-3 py-2 text-gray-400">
+                <td className="px-4 py-3">
+                  {u.role === "ADMIN" ? (
+                    <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                      ADMIN
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">USER</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                  {u.creditBalance.toLocaleString()}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600">{u._count.projects}</td>
+                <td className="px-4 py-3 text-gray-400 text-xs">
                   {new Date(u.createdAt).toLocaleDateString("ko-KR")}
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-4 py-3">
                   {editingId === u.id ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -98,30 +161,49 @@ export default function AdminUsersPage() {
                         value={deltaInput}
                         onChange={(e) => setDeltaInput(e.target.value)}
                         placeholder="±크레딧"
-                        className="w-20 rounded border border-gray-200 px-1 py-0.5 text-xs"
+                        className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
                       />
                       <button
                         disabled={busy}
                         onClick={() => applyDelta(u.id)}
-                        className="rounded bg-black text-white text-xs px-2 py-0.5 disabled:opacity-50"
-                      >적용</button>
+                        className="rounded-lg bg-purple-600 text-white text-xs px-2.5 py-1 disabled:opacity-50 hover:bg-purple-700"
+                      >
+                        적용
+                      </button>
                       <button
-                        onClick={() => { setEditingId(null); setDeltaInput(""); }}
-                        className="text-xs text-gray-400 hover:text-black"
-                      >취소</button>
+                        onClick={() => {
+                          setEditingId(null);
+                          setDeltaInput("");
+                          setError("");
+                        }}
+                        className="text-xs text-gray-400 hover:text-gray-700"
+                      >
+                        취소
+                      </button>
                     </div>
                   ) : (
-                    <button onClick={() => setEditingId(u.id)}
-                      className="text-xs text-blue-600 hover:underline">조정</button>
+                    <button
+                      onClick={() => setEditingId(u.id)}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      조정
+                    </button>
                   )}
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">결과 없음</td></tr>
+            {!loading && users.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  {q ? `"${q}" 검색 결과가 없습니다.` : "사용자가 없습니다."}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
+        {loading && (
+          <div className="px-4 py-8 text-center text-gray-400 text-sm">불러오는 중...</div>
+        )}
       </div>
     </div>
   );

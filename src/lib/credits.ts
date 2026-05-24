@@ -30,3 +30,29 @@ export async function checkAndDeductCredits(
     return { ok: false, balance: balance ?? 0 };
   }
 }
+
+/**
+ * 크레딧 환불 (생성 실패 시 자동 환불)
+ */
+export async function refundCredits(
+  userId: string,
+  amount: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _reason: "REFUND_GENERATION_FAILURE" | "ADMIN" = "REFUND_GENERATION_FAILURE"
+): Promise<void> {
+  if (amount <= 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: { creditBalance: { increment: amount } },
+    });
+    await tx.creditTransaction.create({
+      data: {
+        userId,
+        delta: amount,
+        reason: "REFUND",
+      },
+    });
+  });
+}

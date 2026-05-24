@@ -1,7 +1,7 @@
 "use client";
 
 import type { CanvasObject, BubbleObject, BubbleType, FilterSettings } from "./types";
-import { BUBBLE_LABELS, FONTS } from "./types";
+import { BUBBLE_LABELS, BUBBLE_EMOJIS, FONTS } from "./types";
 import type { EditorTool, BrushSettings } from "./CanvasEditor";
 
 type Props = {
@@ -28,7 +28,10 @@ type Props = {
   onToggleLocked: (id: string) => void;
 };
 
-const BUBBLE_TYPES: BubbleType[] = ["speech", "thought", "shout", "narration", "sfx"];
+const BUBBLE_TYPES: BubbleType[] = [
+  "speech", "speech_round", "thought", "shout", "shout_star",
+  "narration", "sfx", "tail_left", "tail_right", "whisper", "double_line",
+];
 
 function layerLabel(o: CanvasObject): string {
   if (o.kind === "bubble") return `${BUBBLE_LABELS[o.bubbleType]}: ${o.text.slice(0, 8) || "(빈 텍스트)"}`;
@@ -61,12 +64,16 @@ export default function EditorPanel({
     <div className="flex flex-col gap-4 w-64 shrink-0">
       {/* 말풍선 추가 */}
       <div className="rounded-xl border bg-white p-3">
-        <p className="text-xs font-semibold text-gray-500 mb-2">말풍선 추가</p>
-        <div className="grid grid-cols-2 gap-1.5">
+        <p className="text-xs font-semibold text-gray-500 mb-2">말풍선 추가 ({BUBBLE_TYPES.length}종)</p>
+        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
           {BUBBLE_TYPES.map((t) => (
-            <button key={t} onClick={() => onAddBubble(t)}
-              className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 text-center">
-              {BUBBLE_LABELS[t]}
+            <button
+              key={t}
+              onClick={() => onAddBubble(t)}
+              className="rounded-lg border border-[#E8F0EB] px-2 py-1.5 text-xs text-gray-700 hover:bg-[#F0F7F2] text-center flex items-center gap-1"
+            >
+              <span>{BUBBLE_EMOJIS[t]}</span>
+              <span className="truncate">{BUBBLE_LABELS[t]}</span>
             </button>
           ))}
         </div>
